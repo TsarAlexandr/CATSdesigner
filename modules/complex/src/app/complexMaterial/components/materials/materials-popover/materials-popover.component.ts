@@ -1,0 +1,343 @@
+import { Component, Inject } from '@angular/core'
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog'
+import { DialogData } from '../../../../models/DialogData'
+import { AdaptivityService } from '../../../../service/adaptivity.service'
+import { TestService } from '../../../../service/test.service'
+import { Adaptivity } from '../../../../models/Adaptivity'
+import { LibreOfficeAvailabilityService } from '../../../../service/libre-office-availability.service'
+import { StorageKeys } from '../../../../../../../../container/src/app/core/models/storage-keys.enum'
+
+@Component({
+  selector: 'app-materials-popover',
+  templateUrl: './materials-popover.component.html',
+  styleUrls: ['./materials-popover.component.less'],
+})
+export class MaterialsPopoverComponent {
+  public files = []
+  page: number = 1
+  path: string
+  currentPathIndex: number
+  materialPathes: string[]
+  currentFilePath: string
+  zoom: number = 1
+  isDragging: boolean
+
+  isLibreOfficeMode: boolean = false
+  isGoogleDocsLoading: boolean = false
+
+  themaId: string
+  adaptivityType: number
+
+  isAdaptive: boolean
+  needToGetInitialTest: boolean
+  shouldWaitPresettedTime: boolean
+  showMaterial: boolean
+  isEndLearning: boolean
+
+  showTimer: boolean
+  seconds: number
+  studentSeconds: number = 0
+  time: string
+
+  isTest: boolean
+  testId: string
+  isPredTest: boolean
+
+  nextButtonVisible: boolean
+  prevButtonVisible: boolean
+  toTestButtonVisible: boolean
+  toTestButtonEnabled: boolean
+  zoomOutButtonVisible: boolean = true
+  zoomInButtonVisible: boolean = true
+  endTestButtonVisible: boolean = true
+  monitoringPhaseComplete: boolean = false
+
+  constructor(
+    public dialogRef: MatDialogRef<MaterialsPopoverComponent>,
+    private adaptivityService: AdaptivityService,
+    private testService: TestService,
+    @Inject(MAT_DIALOG_DATA) public data: DialogData,
+    private libreOfficeAvailability: LibreOfficeAvailabilityService
+  ) {
+    this.path = data.url
+    this.isAdaptive = data.isAdaptive
+    this.materialPathes
+    this.countWatchTime()
+
+    libreOfficeAvailability.getAvailability().subscribe(available => {
+      this.isLibreOfficeMode = available
+      if (this.materialPathes) {
+        this.checkMaterialsContainerForButtonsVisibility()
+      }
+    })
+
+    if (this.isAdaptive) {
+      this.adaptivityType = data.adaptivityType
+      this.initFieldsByAdaptivity(data.adaptivity)
+    } else if (data.documents) {
+      this.currentPathIndex = data.currentIndex !== undefined ? data.currentIndex : 0
+      this.materialPathes = data.documents
+      this.currentFilePath = this.materialPathes ? this.materialPathes[this.currentPathIndex] : ''
+      this.showMaterial = true
+      this.checkMaterialsContainerForButtonsVisibility()
+    } else {
+      this.showMaterial = true
+      this.toTestButtonVisible = false
+      this.prevButtonVisible = false
+      this.nextButtonVisible = false
+      if (data.url) {
+        this.currentFilePath = data.url.replace('/api/Upload?fileName=', '')
+      }
+    }
+  }
+
+  initFieldsByAdaptivity(adaptivity: Adaptivity) {
+    this.monitoringPhaseComplete = false
+    this.themaId = adaptivity.nextThemaId
+    this.currentPathIndex = 0
+    this.materialPathes = adaptivity.nextMaterialPaths
+    this.needToGetInitialTest = adaptivity.needToDoPredTest
+    this.shouldWaitPresettedTime = adaptivity.shouldWaitPresettedTime
+    this.isEndLearning = adaptivity.isLearningEnded
+
+    this.showMaterial = !(
+      this.needToGetInitialTest ||
+      this.isTest ||
+      this.isEndLearning
+    )
+
+    this.toTestButtonVisible = this.showMaterial
+    this.endTestButtonVisible = true
+    this.zoomOutButtonVisible = true
+    this.zoomInButtonVisible = true
+
+    if (this.materialPathes) {
+      this.checkMaterialsContainerForButtonsVisibility()
+    }
+
+    if (this.shouldWaitPresettedTime) {
+      this.showTimer = true
+      this.toTestButtonEnabled = false
+      this.seconds = adaptivity.timeToWait
+      this.countDown()
+    } else {
+      this.showTimer = false
+      this.toTestButtonEnabled = true
+    }
+  }
+
+  onMonitoringPhaseComplete(): void {
+    this.monitoringPhaseComplete = true
+  }
+
+  onAdaptiveFlowContinue(): void {
+    this.processsTest()
+  }
+
+  processsTest() {
+    if (this.isPredTest) {
+      this.processAndSavePredTest()
+    } else {
+      this.processTestAndGetNext()
+    }
+  }
+
+  processTestAndGetNext() {
+    this.adaptivityService
+      .getNextThemaRes(this.testId, this.themaId, this.adaptivityType)
+      .subscribe((res) => {
+        this.isTest = false
+        this.studentSeconds = 0
+        if (res.nextMaterialPaths && res.nextMaterialPaths.length) {
+          this.path = '/api/Upload?fileName=' + res.nextMaterialPaths[0]
+        }
+        this.initFieldsByAdaptivity(res)
+      })
+  }
+
+  processAndSavePredTest(): void {
+    this.adaptivityService
+      .processPredTtest(this.testId, this.adaptivityType)
+      .subscribe((res) => {
+        this.isTest = false
+        this.studentSeconds = 0
+        if (
+          !res.isLearningEnded &&
+          res.nextMaterialPaths &&
+          res.nextMaterialPaths.length
+        ) {
+          this.path = '/api/Upload?fileName=' + res.nextMaterialPaths[0]
+        }
+        this.initFieldsByAdaptivity(res)
+      })
+  }
+
+  goToTests() {
+    this.adaptivityService
+      .getTestId(this.themaId, this.studentSeconds, this.adaptivityType)
+      .subscribe((res) => {
+        this.testId = `${res}`
+        this.isTest = true
+        this.isPredTest = false
+        this.monitoringPhaseComplete = false
+
+        this.showMaterial = false
+        this.toTestButtonVisible = false
+        this.prevButtonVisible = false
+        this.nextButtonVisible = false
+        this.needToGetInitialTest = false
+        this.shouldWaitPresettedTime = false
+      })
+  }
+
+  goToPredTest() {
+    this.testService.getPredTest().subscribe((res) => {
+      sessionStorage.setItem(
+        StorageKeys.AdaptiveLearningAlgorithm,
+        String(this.adaptivityType)
+      )
+      this.testId = `${res}`
+      this.isTest = true
+      this.isPredTest = true
+      this.monitoringPhaseComplete = false
+
+      this.showMaterial = false
+      this.toTestButtonVisible = false
+      this.prevButtonVisible = false
+      this.nextButtonVisible = false
+      this.needToGetInitialTest = false
+      this.shouldWaitPresettedTime = false
+    })
+  }
+
+  goToPrevMaterial() {
+    if (this.isLibreOfficeMode) {
+      do {
+        --this.currentPathIndex
+        if (this.currentPathIndex < 0) {
+          this.currentPathIndex = 0
+          return
+        }
+      } while (this.materialPathes[this.currentPathIndex].toLowerCase().endsWith('.docx'))
+    } else {
+      --this.currentPathIndex
+      if (this.currentPathIndex < 0) {
+        this.currentPathIndex = 0
+        return
+      }
+    }
+    this.path = '/api/Upload?fileName=' + this.materialPathes[this.currentPathIndex]
+    this.currentFilePath = this.materialPathes[this.currentPathIndex]
+    this.isGoogleDocsLoading = true
+    this.checkMaterialsContainerForButtonsVisibility()
+  }
+
+  goToNextMaterial() {
+    if (this.isLibreOfficeMode) {
+      do {
+        ++this.currentPathIndex
+        if (this.currentPathIndex >= this.materialPathes.length) {
+          this.currentPathIndex = this.materialPathes.length - 1
+          return
+        }
+      } while (this.materialPathes[this.currentPathIndex].toLowerCase().endsWith('.docx'))
+    } else {
+      ++this.currentPathIndex
+      if (this.currentPathIndex >= this.materialPathes.length) {
+        this.currentPathIndex = this.materialPathes.length - 1
+        return
+      }
+    }
+    this.path = '/api/Upload?fileName=' + this.materialPathes[this.currentPathIndex]
+    this.currentFilePath = this.materialPathes[this.currentPathIndex]
+    this.isGoogleDocsLoading = true
+    this.checkMaterialsContainerForButtonsVisibility()
+  }
+
+  checkMaterialsContainerForButtonsVisibility() {
+    this.prevButtonVisible = this.currentPathIndex != 0
+    const nextIndex = this.currentPathIndex + 1
+    const nextExists = nextIndex < this.materialPathes.length && !!this.materialPathes[nextIndex]
+    const nextIsDocx = nextExists && this.materialPathes[nextIndex].toLowerCase().endsWith('.docx')
+    this.nextButtonVisible = nextExists && (this.isLibreOfficeMode ? !nextIsDocx : true)
+    this.toTestButtonVisible = this.isAdaptive && !this.nextButtonVisible
+  }
+
+  countDown() {
+    if (this.adaptivityType === 2) {
+      this.seconds = 0
+      this.toTestButtonEnabled = true
+      this.showTimer = false
+      return
+    }
+
+    window.setInterval(() => {
+      this.seconds -= 1
+      this.time = this.getStrTime()
+      if (this.seconds == 0) {
+        this.toTestButtonEnabled = true
+        this.showTimer = false
+        return
+      }
+    }, 1000)
+  }
+
+  countWatchTime() {
+    window.setInterval(() => {
+      this.studentSeconds += 1
+    }, 1000)
+  }
+
+  getStrTime(): string {
+    if (this.seconds > 60) {
+      var min = Math.floor(this.seconds / 60)
+      var sec = this.seconds % 60
+    } else {
+      var sec = this.seconds
+      var min = 0
+    }
+    var minStr = min < 10 ? '0' + min : min
+    var secStr = sec < 10 ? '0' + sec : sec
+    return `${minStr}:${secStr}`
+  }
+
+  onNoClick(): void {
+    this.dialogRef.close(this.studentSeconds)
+  }
+
+  get googleDocsUrl(): string {
+    const filePath = this.currentFilePath || (this.path ? this.path.replace('/api/Upload?fileName=', '') : '')
+    const publicFileUrl = `${window.location.origin}/api/Upload?fileName=${filePath}`
+    return `https://docs.google.com/gview?url=${publicFileUrl}&embedded=true`
+  }
+
+  zoomIn() {
+    this.zoom = this.zoom + 0.25
+  }
+
+  zoomOut() {
+    if (this.zoom > 1) {
+      this.zoom = this.zoom - 0.25
+    }
+  }
+
+  onDrag(event: MouseEvent, pdfViewer: any) {
+    if (this.isDragging && !this.isTextSelected()) {
+      const x =
+        pdfViewer.element.nativeElement.children[0].scrollLeft - event.movementX
+      const y =
+        pdfViewer.element.nativeElement.children[0].scrollTop - event.movementY
+      pdfViewer.element.nativeElement.children[0].scrollTo(x, y)
+    }
+  }
+  onDragStarted(event: MouseEvent) {
+    this.isDragging = true
+  }
+  onDragEnded(event: MouseEvent, note: 'up' | 'leave') {
+    this.isDragging = false
+  }
+
+  isTextSelected() {
+    return window.getSelection().toString().length > 0
+  }
+}

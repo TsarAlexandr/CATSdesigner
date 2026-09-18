@@ -1,0 +1,111 @@
+<div class="materials-body">
+  <table class="materials-table">
+    <tr>
+      <a class="main-anchor" (click)="navigateToComplexList()"
+        >< {{ 'complex.complexes' | translate: 'К списку ЭУМК' }}</a
+      >
+    </tr>
+    <tr>
+      <b class="complex-name">{{ complexName }}</b>
+    </tr>
+    <tr>
+      <td class="complex-toolbar-row">
+        <span class="complex-toolbar-left">
+          <button
+            *ngIf="isLector"
+            mat-raised-button
+            class="add-button"
+            (click)="openAddPopup()"
+          >
+            {{ 'complex.addComponent' | translate: 'Добавить элемент' }}
+          </button>
+          <span
+            class="adaptive-learning-wrapper"
+            [matTooltip]="getAdaptiveLearningDisabledReason()"
+            [matTooltipDisabled]="!isAdaptiveLearningDisabled"
+            matTooltipPosition="right"
+          >
+            <button
+              mat-raised-button
+              class="add-button adaptive-learning"
+              [matMenuTriggerFor]="menu"
+              [disabled]="isAdaptiveLearningDisabled"
+            >
+              {{ 'complex.adaptiveLearning' | translate: 'Адаптивное обучение' }}
+              <mat-icon>keyboard_arrow_down</mat-icon>
+            </button>
+          </span>
+          <mat-menu #menu="matMenu">
+            <button mat-menu-item (click)="openAdaptivityPopup(2)">
+              {{
+                'complex.algorithm.base' | translate: 'Базовый алгоритм обучения'
+              }}
+            </button>
+            <button mat-menu-item (click)="openAdaptivityPopup(1)">
+              {{
+                'complex.algorithm.advanced'
+                  | translate: 'Углубленный алгоритм обучения'
+              }}
+            </button>
+          </mat-menu>
+        </span>
+        <span *ngIf="isLector" class="eumk-teacher-actions">
+          <app-help
+            [wide]="true"
+            [message]="
+              'complex.eumk.help.message'
+                | translate
+                  : 'В ЭУМК можно добавлять новые элементы в виде файла или папки. Если связать теоретические элементы ЭУМК с соответствующими тестами из модуля «Тестирование знаний», то можно организовать адаптивное обучение по ЭУМК. Для скачивания ЭУМК нажмите на иконку справа.'
+            "
+            [action]="'common.clear' | translate: 'Понятно'"
+          ></app-help>
+          <button
+            mat-icon-button
+            color="primary"
+            class="eumk-download-trigger"
+            [matMenuTriggerFor]="eumkDownloadMenu"
+            [matTooltip]="
+              'complex.eumk.download.tooltip'
+                | translate
+                  : 'Скачать ЭУМК'
+            "
+            matTooltipPosition="below"
+            [disabled]="eumkExportInProgress"
+          >
+            <mat-icon>cloud_download</mat-icon>
+          </button>
+          <mat-menu #eumkDownloadMenu="matMenu">
+            <button mat-menu-item (click)="exportEumk('docx')">
+              {{
+                'complex.eumk.download.docx'
+                  | translate
+                    : 'Сохранить как Word (.docx)'
+              }}
+            </button>
+            <button mat-menu-item (click)="exportEumk('pdf')">
+              {{
+                'complex.eumk.download.pdf'
+                  | translate
+                    : 'Сохранить как PDF (.pdf)'
+              }}
+              <span
+                *ngIf="!libreOfficeAvailable"
+                class="eumk-pdf-fallback-hint"
+              >
+                ({{
+                  'complex.eumk.download.pdfNoLoHint'
+                    | translate
+                    : 'без LibreOffice — упрощённый PDF'
+                }})
+              </span>
+            </button>
+          </mat-menu>
+        </span>
+      </td>
+    </tr>
+  </table>
+  <app-material-tree
+    class="material"
+    [complexId]="complexID"
+  ></app-material-tree>
+</div>

@@ -1,0 +1,489 @@
+import {
+  ChangeDetectorRef,
+  Component,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  SimpleChanges,
+} from '@angular/core'
+import { TestService } from '../service/test.service'
+import { TestPassingService } from '../service/test-passing.service'
+import { Group } from '../models/group.model'
+import { Result } from '../models/result.model'
+import { ResultForTable } from '../models/result-for-table.model'
+import { AutoUnsubscribe } from '../decorator/auto-unsubscribe'
+import { AutoUnsubscribeBase } from '../core/auto-unsubscribe-base'
+import { of, Subject, timer } from 'rxjs'
+import { catchError, exhaustMap, filter, finalize, takeUntil } from 'rxjs/operators'
+import { AutocompleteModel } from '../models/autocomplete.model'
+import { Results } from '../models/results.model'
+import { TranslatePipe } from 'educats-translate'
+import { MatSlideToggleChange } from '@angular/material'
+import { Help } from '../models/help.model'
+
+@AutoUnsubscribe
+@Component({
+  selector: 'app-result-teacher',
+  templateUrl: './result-teacher.component.html',
+  styleUrls: ['./result-teacher.component.less'],
+})
+export class ResultTeacherComponent
+  extends AutoUnsubscribeBase
+  implements OnInit, OnChanges, OnDestroy
+{
+  @Input()
+  public size: number
+  public results: Result[]
+  public resultsOriginal: Result[][] = []
+  public selfControlTests: ResultForTable[][] = []
+  public selfControlTestsMass: any = []
+  public nNTestsMass: any = []
+  public nNTests: ResultForTable[][] = []
+  public beforeEUMKTestsMass: any = []
+  public beforeEUMKTests: ResultForTable[][] = []
+  public forEUMKTestsMass: any = []
+  public forEUMKTests: ResultForTable[][] = []
+  public knowledgeControlTests: ResultForTable[][] = []
+  public knowledgeControlTestsMass: any = []
+  public loading: boolean
+  public groups: Group[]
+  public groupsList: AutocompleteModel[] = []
+  public studentList: AutocompleteModel[] = []
+  public testsList: AutocompleteModel[]
+  public filterStudentsString: string
+  public groupId: number
+  public groupChangeCheckBoxes: string[] = []
+  public testChangeCheckBoxes: string[] = ['0']
+  public studentChangeCheckBoxes: string[] = []
+  //todo any delete
+  public user: any
+  public subject: any
+  private unsubscribeStream$: Subject<void> = new Subject<void>()
+  private readonly refreshMs = 10000
+  private studentFilterClearTimer: ReturnType<typeof setTimeout> | undefined
+  public showAsSubGroup: boolean
+  public help: Help
+
+  constructor(
+    private testService: TestService,
+    private cdr: ChangeDetectorRef,
+    private translatePipe: TranslatePipe,
+    private testPassingService: TestPassingService
+  ) {
+    super()
+    this.help = {
+      message: this.translatePipe.transform(
+        'text.help.lectures',
+        'Чтобы посмотреть результаты тестов, выберите нужную группу и тип теста. Также можно посмотреть результаты тестов по подгруппам и каждого отдельного студента.'
+      ),
+      action: this.translatePipe.transform('button.understand', 'Понятно'),
+    }
+  }
+
+  public ngOnInit(): void {
+    this.initArrays()
+    this.user = JSON.parse(localStorage.getItem('currentUser'))
+    this.subject = JSON.parse(localStorage.getItem('currentSubject'))
+    this.testsList = [
+      {
+        display: this.translatePipe.transform(
+          'text.tests.for.control',
+          'Тесты для контроля знаний'
+        ),
+        value: '0',
+      },
+      {
+        display: this.translatePipe.transform(
+          'text.tests.for.self.control',
+          'Тесты для самоконтроля'
+        ),
+        value: '1',
+      },
+      {
+        display: this.translatePipe.transform(
+          'text.tests.for.pre.eumk',
+          'Предтест для обучения в ЭУМК'
+        ),
+        value: '2',
+      },
+      {
+        display: this.translatePipe.transform(
+          'text.tests.for.eumk',
+          'Тесты для обучения в ЭУМК'
+        ),
+        value: '3',
+      },
+      {
+        display: this.translatePipe.transform(
+          'text.tests.for.nn',
+          'Тесты для обучения с искусственной нейронной сетью'
+        ),
+        value: '4',
+      },
+    ]
+    this.testService
+      .getGroupsBySubjectId(this.subject.id)
+      .pipe(takeUntil(this.unsubscribeStream$))
+      .subscribe((groups: Group[]) => {
+        this.groups = groups
+        groups.forEach((group: Group) => {
+          // @ts-ignore
+          this.groupsList.push({ display: group.Name, value: <string>group.Id })
+        })
+      })
+
+    timer(this.refreshMs, this.refreshMs)
+      .pipe(
+        takeUntil(this.unsubscribeStream$),
+        filter(() => {
+          return (
+            !!this.groupChangeCheckBoxes?.length &&
+            typeof document !== 'undefined' &&
+            document.visibilityState === 'visible'
+          )
+        }),
+        exhaustMap(() => {
+          return this.testPassingService.getResultsByGroupsAndSubject(
+            this.groupChangeCheckBoxes,
+            this.subject.id
+          )
+          .pipe(catchError(() => of([] as Results[])))
+        })
+      )
+      .subscribe((apiResults: Results[]) => {
+        if (!apiResults?.length) {
+          return
+        }
+        this.initArraysMass()
+        this.initArrays()
+        this.resultsOriginal = []
+        this.studentList = []
+
+        apiResults.forEach((groupBlock: Results) => {
+          const groupIdRaw = groupBlock.GroupId ?? groupBlock.groupId
+          const groupMeta = this.groupsList.find(
+            (g: AutocompleteModel) => Number(g.value) === Number(groupIdRaw)
+          )
+          groupBlock.Results.forEach((result: Result) => {
+            if (groupMeta) {
+              result.groupName = groupMeta.display
+              result.groupId = groupMeta.value
+            }
+          })
+          this.resultsOriginal.push(groupBlock.Results)
+        })
+
+        this.results = this.resultsOriginal[0] || []
+
+        this.resultsOriginal.forEach((res) => {
+          this.decomposeResult(res, false, false)
+        })
+        if (this.studentChangeCheckBoxes?.length) {
+          this.filterStudentsLogin([...this.studentChangeCheckBoxes])
+        }
+        this.cdr.detectChanges()
+      })
+  }
+
+  private groupIdsSelectionEqual(a: string[], b: string[]): boolean {
+    if (!a || !b || a.length !== b.length) {
+      return false
+    }
+    const sa = a.map((x) => String(x)).sort()
+    const sb = b.map((x) => String(x)).sort()
+    return sa.every((v, i) => v === sb[i])
+  }
+
+  private sameStringArray(a: string[], b: string[]): boolean {
+    const aa = a?.map((x) => String(x)).filter((x) => x) ?? []
+    const bb = b?.map((x) => String(x)).filter((x) => x) ?? []
+    if (aa.length !== bb.length) {
+      return false
+    }
+    if (aa.length === 0) {
+      return true
+    }
+    const sa = [...aa].sort()
+    const sb = [...bb].sort()
+    return sa.every((v, i) => v === sb[i])
+  }
+
+  ngOnDestroy(): void {
+    if (this.studentFilterClearTimer) {
+      clearTimeout(this.studentFilterClearTimer)
+    }
+    super.ngOnDestroy()
+  }
+
+  /*public filterStudents(event: string): void {
+    let results = this.resultsOriginal && this.resultsOriginal.filter(result => result.StudentName.toLowerCase().includes(event.toLowerCase()));
+    this.decomposeResult(results);
+    this.cdr.detectChanges();
+  }*/
+
+  /*public filterStudentsLogin(event: string[]): void {
+    let results;
+    if (event && event.length) {
+      results = this.resultsOriginal && this.resultsOriginal.filter(result => event.includes(result.Login));
+    } else {
+      results = this.resultsOriginal;
+    }
+    this.decomposeResult(results);
+    this.cdr.detectChanges();
+  }*/
+  public filterStudentsLogin(event: string[]): void {
+    this.initArraysMass()
+
+    let results: Result[][] = []
+    if (event && event.length) {
+      this.resultsOriginal &&
+        this.resultsOriginal.forEach((resultsOriginal: Result[]) => {
+          results.push(
+            resultsOriginal.filter((result) => event.includes(result.Login))
+          )
+        })
+    } else {
+      results = this.resultsOriginal
+    }
+    results.forEach((result: Result[]) => {
+      this.decomposeResult(result, true, false)
+    })
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    /*if (changes.groupId) {
+      this.getResults(changes.groupId.currentValue);
+    }
+    this.filterStudents(this.filterStudentsString);
+    this.cdr.detectChanges();*/
+  }
+
+  public groupChange(eventChange: string[]): void {
+    if (!eventChange?.length) {
+      return
+    }
+    if (this.groupIdsSelectionEqual(this.groupChangeCheckBoxes, eventChange)) {
+      return
+    }
+    this.groupChangeCheckBoxes = [...eventChange]
+    this.loading = true
+    this.testPassingService
+      .getResultsByGroupsAndSubject(eventChange, this.subject.id)
+      .pipe(
+        takeUntil(this.unsubscribeStream$),
+        finalize(() => {
+          this.loading = false
+          this.cdr.detectChanges()
+        })
+      )
+      .subscribe((apiResults: Results[]) => {
+        this.initArraysMass()
+        this.initArrays()
+        this.resultsOriginal = []
+        this.studentList = []
+
+        apiResults.forEach((groupBlock: Results) => {
+          const groupIdRaw = groupBlock.GroupId ?? groupBlock.groupId
+          const groupMeta = this.groupsList.find(
+            (g: AutocompleteModel) => Number(g.value) === Number(groupIdRaw)
+          )
+          groupBlock.Results.forEach((result: Result) => {
+            if (groupMeta) {
+              result.groupName = groupMeta.display
+              result.groupId = groupMeta.value
+            }
+          })
+          this.resultsOriginal.push(groupBlock.Results)
+        })
+
+        this.results = this.resultsOriginal[0] || []
+
+        this.resultsOriginal.forEach((res) => {
+          this.decomposeResult(res, false, false)
+        })
+      })
+    }
+
+  public testsChange(eventChange) {
+    if (this.testChangeCheckBoxes !== eventChange) {
+      this.testChangeCheckBoxes = eventChange
+    }
+  }
+
+  public studentChange(eventChange: string[]): void {
+    const next =
+      eventChange?.map((x) => String(x)).filter((x) => x?.length) ?? []
+    if (this.sameStringArray(this.studentChangeCheckBoxes, next)) {
+      return
+    }
+    if (next.length === 0 && this.studentChangeCheckBoxes.length > 0) {
+      if (this.studentFilterClearTimer) {
+        clearTimeout(this.studentFilterClearTimer)
+      }
+      this.studentFilterClearTimer = setTimeout(() => {
+        this.studentFilterClearTimer = undefined
+        this.studentChangeCheckBoxes = []
+        this.filterStudentsLogin([])
+        this.cdr.detectChanges()
+      }, 400)
+      return
+    }
+    if (this.studentFilterClearTimer) {
+      clearTimeout(this.studentFilterClearTimer)
+      this.studentFilterClearTimer = undefined
+    }
+    this.studentChangeCheckBoxes = [...next]
+    this.filterStudentsLogin(next)
+    this.cdr.detectChanges()
+  }
+
+  private initArrays(): void {
+    this.initArray(this.selfControlTests)
+    this.initArray(this.nNTests)
+    this.initArray(this.beforeEUMKTests)
+    this.initArray(this.forEUMKTests)
+    this.initArray(this.knowledgeControlTests)
+  }
+
+  private initArraysMass(): void {
+    this.knowledgeControlTestsMass = []
+    this.selfControlTestsMass = []
+    this.nNTestsMass = []
+    this.beforeEUMKTestsMass = []
+    this.forEUMKTestsMass = []
+  }
+
+  private initArray(test): void {
+    for (let i = 0; i < 3; i++) {
+      test[i] = new Map<string, ResultForTable>()
+    }
+  }
+
+  private decomposeResult(
+    results: Result[],
+    notTouchStList: boolean,
+    update: boolean
+  ): void {
+    if (results) {
+      results.forEach((result) => {
+        if (!notTouchStList) {
+          this.studentList.push({
+            value: result.Login,
+            display: result.StudentName,
+          })
+        }
+        const resultForTable: ResultForTable = new ResultForTable()
+        resultForTable.test = []
+        resultForTable.name = result.StudentName
+        resultForTable.subGroup = result.SubGroup
+        resultForTable.StudentShortName = result.StudentShortName
+        resultForTable.id =
+          result &&
+          result.TestPassResults[0] &&
+          result.TestPassResults[0].StudentId
+        this.initTestArray(this.selfControlTests, resultForTable, result.Login)
+        this.initTestArray(this.nNTests, resultForTable, result.Login)
+        this.initTestArray(this.beforeEUMKTests, resultForTable, result.Login)
+        this.initTestArray(this.forEUMKTests, resultForTable, result.Login)
+        this.initTestArray(
+          this.knowledgeControlTests,
+          resultForTable,
+          result.Login
+        )
+        result.TestPassResults.forEach((testPassResult) => {
+          const testRes: any = {}
+          testRes.testName = testPassResult.TestName
+          testRes.testId = testPassResult.TestId
+          testRes.studentId = testPassResult.StudentId
+          testRes.points = testPassResult.Points
+          testRes.percent = testPassResult.Percent
+          if (testPassResult.ForSelfStudy) {
+            this.sortBySubGroup(result, this.selfControlTests, testRes)
+          } else if (testPassResult.ForNN) {
+            this.sortBySubGroup(result, this.nNTests, testRes)
+          } else if (testPassResult.BeforeEUMK) {
+            this.sortBySubGroup(result, this.beforeEUMKTests, testRes)
+          } else if (testPassResult.ForEUMK) {
+            this.sortBySubGroup(result, this.forEUMKTests, testRes)
+          } else {
+            this.sortBySubGroup(result, this.knowledgeControlTests, testRes)
+          }
+        })
+      })
+      const groupName = results && results.length && results[0].groupName
+      const groupId = results && results.length && results[0].groupId
+      if (
+        !this.knowledgeControlTestsMass.some(
+          (test) => test.group === groupName
+        ) ||
+        update
+      ) {
+        this.knowledgeControlTestsMass.push({
+          res: Object.assign({}, this.knowledgeControlTests),
+          group: groupName,
+          groupId,
+        })
+        this.selfControlTestsMass.push({
+          res: Object.assign({}, this.selfControlTests),
+          group: groupName,
+          groupId,
+        })
+        this.nNTestsMass.push({
+          res: Object.assign({}, this.nNTests),
+          group: groupName,
+          groupId,
+        })
+        this.beforeEUMKTestsMass.push({
+          res: Object.assign({}, this.beforeEUMKTests),
+          group: groupName,
+          groupId,
+        })
+        this.forEUMKTestsMass.push({
+          res: Object.assign({}, this.forEUMKTests),
+          group: groupName,
+          groupId,
+        })
+        this.initArrays()
+      }
+    }
+  }
+
+  private initTestArray(test, resultForTable, login): void {
+    if (this.showAsSubGroup) {
+      if (resultForTable.subGroup === 'first') {
+        test[0].set(login, JSON.parse(JSON.stringify(resultForTable)))
+      } else if (resultForTable.subGroup === 'second') {
+        test[1].set(login, JSON.parse(JSON.stringify(resultForTable)))
+      } else {
+        test[2].set(login, JSON.parse(JSON.stringify(resultForTable)))
+      }
+    } else {
+      test[0].set(login, JSON.parse(JSON.stringify(resultForTable)))
+    }
+  }
+
+  private sortBySubGroup(result: Result, test, testRes) {
+    if (this.showAsSubGroup) {
+      if (result.SubGroup === 'first') {
+        test[0].get(result.Login).test.push(testRes)
+      } else if (result.SubGroup === 'second') {
+        test[1].get(result.Login).test.push(testRes)
+      } else {
+        test[2].get(result.Login).test.push(testRes)
+      }
+    } else {
+      test[0].get(result.Login).test.push(testRes)
+    }
+  }
+
+  public toggleStateChange(event: MatSlideToggleChange): void {
+    this.showAsSubGroup = event.checked
+    this.initArrays()
+    this.initArraysMass()
+    this.resultsOriginal.forEach((res) => {
+      this.decomposeResult(res, false, true)
+    })
+    this.cdr.detectChanges()
+  }
+}

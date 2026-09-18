@@ -1,0 +1,431 @@
+﻿using Application.Core;
+using Application.Infrastructure.AdaptiveLearning;
+using Application.Infrastructure.ConceptManagement;
+using Application.Infrastructure.FilesManagement;
+using Application.Infrastructure.KnowledgeTestsManagement;
+using Application.Infrastructure.WatchingTimeManagement;
+using LMPlatform.AdaptiveLearningCore;
+using LMPlatform.AdaptiveLearningCore.Models;
+using LMPlatform.AdaptiveLearningCore.Shared;
+using LMPlatform.Models.AdaptivityLearning;
+using LMPlatform.UI.Services.Modules;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.ServiceModel;
+using System.Text;
+using System.Web.Helpers;
+using System.Web.Mvc;
+using LMPlatform.UI.Attributes;
+using Application.Core.Constants;
+using Application.Core.Helpers;
+using LMPlatform.UI.Services.Modules.Concept;
+
+namespace LMPlatform.UI.Services.AdaptiveLearning
+{
+    [JwtAuth]
+    // NOTE: You can use the "Rename" command on the "Refactor" menu to change the class name "AdaptiveLearningService" in code, svc and config file together.
+    // NOTE: In order to launch WCF Test Client for testing this service, please select AdaptiveLearningService.svc or AdaptiveLearningService.svc.cs at the Solution Explorer and start debugging.
+    public class AdaptiveLearningService : IAdaptiveLearningService
+	{
+		private const int NEEDED_QUSTIONS_COUNT = 10;
+
+		private readonly LazyDependency<Application.Infrastructure.AdaptiveLearning.IAdaptiveLearningService> adaptiveLearningService = new LazyDependency<Application.Infrastructure.AdaptiveLearning.IAdaptiveLearningService>();
+		private readonly LazyDependency<IQuestionsManagementService> questionsManagementService = new LazyDependency<IQuestionsManagementService>();
+		private readonly LazyDependency<ITestsManagementService> testsManagementService = new LazyDependency<ITestsManagementService>();
+		private readonly LazyDependency<ITestPassingService> testPassingService = new LazyDependency<ITestPassingService>();
+		private readonly LazyDependency<IConceptManagementService> _conceptManagementService = new LazyDependency<IConceptManagementService>(); 
+		private readonly LazyDependency<IWatchingTimeService> _watchingTimeService = new LazyDependency<IWatchingTimeService>();
+		private readonly LazyDependency<IFilesManagementService> _filesManagementService =
+			 new LazyDependency<IFilesManagementService>();
+
+		public IFilesManagementService FilesManagementService => _filesManagementService.Value;
+		public Application.Infrastructure.AdaptiveLearning.IAdaptiveLearningService AdaptiveLearningManagementService => adaptiveLearningService.Value;
+		public IQuestionsManagementService QuestionsManagementService => questionsManagementService.Value;
+		public ITestsManagementService TestsManagementService => testsManagementService.Value;
+		public ITestPassingService TestPassingService => testPassingService.Value;
+		public IConceptManagementService ConceptManagementService => _conceptManagementService.Value;
+		public IWatchingTimeService WatchingTimeService => _watchingTimeService.Value;
+
+		public AdaptivityViewResult GetNextThema(int userId, int subjectId, int testId, int currentThemaId, int adaptivityType, int eumkRootConceptId)
+		{
+			var adaptivityProcessor = GetLearningProcessor(adaptivityType);
+
+			var allAvailableThemas = AdaptiveLearningManagementService.GetAllAvaiableThemas(subjectId, adaptivityType, userId);
+			allAvailableThemas = FilterThemasByEumk(allAvailableThemas, eumkRootConceptId);
+			if (allAvailableThemas is null || !allAvailableThemas.Any())
+			{
+				return new AdaptivityViewResult
+				{
+					NextThemaId = null,
+					NextMaterialPath = null,
+					NeedToDoPredTest = true,
+					Code = "500"
+				};
+			}
+
+			int themaResult = AdaptiveLearningManagementService.GeDynamicTestResult(testId, userId);
+			
+			
+			var currentRes = adaptivityProcessor.GetResultByCurrentThema(currentThemaId, themaResult, allAvailableThemas);
+
+			AdaptiveLearningManagementService.SaveThemaResult(currentRes.ResultByCurrentThema, currentRes.NextStepSolution, currentThemaId, adaptivityType, userId);
+			AdaptiveLearningManagementService.ClearDynamicTestData(testId);
+
+			if (currentRes.NextStepSolution == ThemaSolutions.END_PROCCESS)
+			{
+				return new AdaptivityViewResult
+				{
+					NextThemaId = null,
+					NextMaterialPath = null,
+					NeedToDoPredTest = false,
+					IsLearningEnded = true,
+					Code = "200"
+				};
+			}
+			
+			
+			return new AdaptivityViewResult
+			{
+				NextThemaId = currentRes.NextThemaId,
+				NextMaterialPath = GetNextThemaPath(currentRes.NextThemaId.Value, eumkRootConceptId, out int timeToWait),
+				NeedToDoPredTest = false,
+				ShouldWaitBeforeTest = currentRes.NextStepSolution == ThemaSolutions.REPEAT_CURRENT,
+				TimeToWait = timeToWait,
+				Code = "200"
+			};
+		}
+
+		public AdaptivityViewResult ProcessPredTestResults(int userId, int testId, int adaptivityType, int eumkRootConceptId)
+		{
+			var adaptivityProcessor = GetLearningProcessor(adaptivityType);
+
+			var eumkConceptIds = GetEumkConceptIds(eumkRootConceptId);
+			var availableThemas = AdaptiveLearningManagementService
+				.GetPredTestResults(testId, userId)?
+				.Where(x => eumkConceptIds == null || eumkConceptIds.Contains(x.ThemaId))
+				.Select(x => new PredTestResults
+				{
+					ThemaId = x.ThemaId,
+					ThemaResult = x.ThemaResult,
+					ThemaResume = ThemaResume.NEED_TO_LEARN
+				})
+				.ToList();
+
+			if (availableThemas == null || !availableThemas.Any())
+			{
+				return new AdaptivityViewResult
+				{
+					NextThemaId = null,
+					NextMaterialPath = null,
+					NeedToDoPredTest = true,
+					Code = "500"
+				};
+			}
+
+			adaptivityProcessor.ProcessPredTestResults(availableThemas);
+			AdaptiveLearningManagementService.SaveProcessedPredTestResult(testId, userId, adaptivityType, availableThemas);
+
+			var nextThema = availableThemas.FirstOrDefault(x => x.ThemaResume == ThemaResume.NEED_TO_LEARN);
+			if (nextThema == null)
+			{
+				return new AdaptivityViewResult
+				{
+					NextThemaId = null,
+					NextMaterialPath = null,
+					NeedToDoPredTest = false,
+					IsLearningEnded = true,
+					Code = "200"
+				};
+			}
+
+			return new AdaptivityViewResult
+			{
+				NextThemaId = nextThema.ThemaId,
+				NextMaterialPath = GetNextThemaPath(nextThema.ThemaId, eumkRootConceptId, out int timeToWait),
+				NeedToDoPredTest = false,
+				Code = "200"
+			};
+		}
+
+		public int GetDynamicTestIdForThema(int userId, int subjectId, int complexId, int monitoringRes, int adaptivityType)
+		{
+			if (adaptivityType == (int)AdaptivityType.SIMPLE)
+			{
+				return this.TestsManagementService
+					.GetTestsForSubject(subjectId)
+					.Where(x => x.ForEUMK)
+					.Where(x => x.Title != AdaptiveConst.AdaptiveTestName)
+					.FirstOrDefault(x => x.Questions.All(q => q.ConceptId == complexId))
+					?.Id ?? -1;
+			}
+			var adaptivityProcessor = GetLearningProcessor(adaptivityType);
+			var allQuestions = QuestionsManagementService
+				.GetQuestionsByConceptId(complexId)
+				.Where(x => x.Test != null && x.Test.ForEUMK)
+				.Where(x => x.Test.Title != AdaptiveConst.AdaptiveTestName)
+				.GroupBy(x => x.Title)
+				.Select(x => new { x.First().Id, x.First().ComlexityLevel });// This workaround is necessary because of wrong table behaviour
+				
+			var allTestQuestions = allQuestions.Select(x => new TestQuestion
+				{
+					TestQuestionId = x.Id,
+					TestQuestionDificulty = GetTestDifficultyByComplexityLevel(x.ComlexityLevel)
+				});
+
+			var prevThemas = AdaptiveLearningManagementService
+				.GetAllAvaiableThemas(subjectId, adaptivityType, userId)
+				.Where(x => x.FinalThemaResult.HasValue)
+				.Select(x => new ThemaResult() 
+				{
+					ThemaId = x.ThemaId,
+					ResultByCurrentThema = x.FinalThemaResult.Value,
+					NextStepSolution = ThemaSolutions.GET_NEXT
+				})
+				.ToList();
+
+			var questionIds =  adaptivityProcessor.PrepareListOfTestQuestions(prevThemas, allTestQuestions, monitoringRes, 0, NEEDED_QUSTIONS_COUNT).ToArray();
+
+			var dynamicTestId = AdaptiveLearningManagementService.CreateDynamicTestForUser(subjectId, NEEDED_QUSTIONS_COUNT);
+			QuestionsManagementService.CopyQuestionsToTest(dynamicTestId, questionIds);
+
+			return dynamicTestId;
+		}
+
+		public AdaptivityViewResult GetFirstThema(int userId, int subjectId, int adaptivityType, int eumkRootConceptId)
+		{
+			var allAvailableThemas = AdaptiveLearningManagementService.GetAllAvaiableThemas(subjectId, adaptivityType, userId);
+			allAvailableThemas = FilterThemasByEumk(allAvailableThemas, eumkRootConceptId);
+			if (allAvailableThemas is null || !allAvailableThemas.Any())
+			{
+				return new AdaptivityViewResult
+				{
+					NextThemaId = null,
+					NextMaterialPath = null,
+					NeedToDoPredTest = true,
+					Code = "500"
+				};
+			}
+			var first = allAvailableThemas.FirstOrDefault(x => x.ThemaResume == ThemaResume.NEED_TO_LEARN);
+			if (first is null)
+			{
+				return new AdaptivityViewResult
+				{
+					NextThemaId = null,
+					NextMaterialPath = null,
+					NeedToDoPredTest = false,
+					IsLearningEnded = true,
+					Code = "200"
+				};
+			}
+
+			return new AdaptivityViewResult
+			{
+				NextThemaId = first.ThemaId,
+				NextMaterialPath = GetNextThemaPath(first.ThemaId, eumkRootConceptId, out int timeToWait),
+				ShouldWaitBeforeTest = (ThemaSolutions)first.ThemaResume == ThemaSolutions.REPEAT_CURRENT,
+				TimeToWait = timeToWait,
+				NeedToDoPredTest = false,
+				Code = "200"
+			};
+		}
+
+		private TestsDifficulties GetTestDifficultyByComplexityLevel(int complexityLevel)
+		{
+			return Enum.GetValues(typeof(TestsDifficulties)).Cast<TestsDifficulties>().ElementAt(complexityLevel / 2);
+		}
+		
+		private AdaptiveLearningProcessor GetLearningProcessor(int adaptiivtyType)
+		{
+			var adaptivityType = (AdaptivityType)Enum.GetValues(typeof(AdaptivityType)).GetValue(adaptiivtyType - 1);			
+
+			return new AdaptiveLearningProcessor(adaptivityType);
+		}
+
+		private string GetFilePath(string container)
+		{
+			var attach = FilesManagementService.GetAttachments(container).FirstOrDefault();
+			if (attach == null) return string.Empty;
+			return  $"{attach.PathName}//{ attach.FileName}";
+		}
+		
+		private bool CurrentUserIsLector()
+		{
+			return string.Equals(UserContext.Role, Constants.Roles.Lector, StringComparison.OrdinalIgnoreCase);
+		}
+
+		private HashSet<int> GetEumkConceptIds(int eumkRootConceptId)
+		{
+			if (eumkRootConceptId <= 0)
+			{
+				return null;
+			}
+
+			try
+			{
+				var root = ConceptManagementService.GetTreeConceptByElementId(eumkRootConceptId);
+				if (root == null)
+				{
+					return null;
+				}
+
+				var ids = new HashSet<int> { root.Id };
+				foreach (var child in root.GetAllChildren())
+				{
+					ids.Add(child.Id);
+				}
+				return ids;
+			}
+			catch
+			{
+				return null;
+			}
+		}
+
+		private IEnumerable<ConceptThema> FilterThemasByEumk(IEnumerable<ConceptThema> themas, int eumkRootConceptId)
+		{
+			if (themas == null)
+			{
+				return themas;
+			}
+
+			var eumkConceptIds = GetEumkConceptIds(eumkRootConceptId);
+			if (eumkConceptIds == null)
+			{
+				return themas;
+			}
+
+			return themas.Where(x => eumkConceptIds.Contains(x.ThemaId)).ToList();
+		}
+
+		private ConceptViewData FindConceptViewById(ConceptViewData root, int conceptId)
+		{
+			if (root == null)
+			{
+				return null;
+			}
+
+			if (root.Id == conceptId)
+			{
+				return root;
+			}
+
+			if (root.Children == null)
+			{
+				return null;
+			}
+
+			foreach (var ch in root.Children)
+			{
+				var hit = FindConceptViewById(ch, conceptId);
+				if (hit != null)
+				{
+					return hit;
+				}
+			}
+
+			return null;
+		}
+
+		private void CollectTheoryPathsUnderThema(ConceptViewData node, List<string> paths, ref int totalSeconds)
+		{
+			if (node == null)
+			{
+				return;
+			}
+
+			if (node.TestId.HasValue)
+			{
+				return;
+			}
+
+			if (node.IsGroup)
+			{
+				if (node.Children == null || !node.Children.Any())
+				{
+					return;
+				}
+
+				foreach (var child in node.Children)
+				{
+					CollectTheoryPathsUnderThema(child, paths, ref totalSeconds);
+				}
+
+				return;
+			}
+
+			if (!node.HasData)
+			{
+				return;
+			}
+
+			var att = (node.Attachments != null && node.Attachments.Count > 0)
+				? node.Attachments.FirstOrDefault()
+				: FilesManagementService.GetAttachments(node.Container).FirstOrDefault();
+			if (att == null)
+			{
+				return;
+			}
+
+			var rel = $"{att.PathName}//{att.FileName}";
+			if (string.IsNullOrWhiteSpace(rel) || rel == "//")
+			{
+				return;
+			}
+
+			paths.Add(rel);
+			totalSeconds += WatchingTimeService.GetEstimatedTime(node.Container);
+		}
+
+		private List<string> GetNextThemaPath(int themaId, int eumkRootConceptId, out int generalTime)
+		{
+			if (eumkRootConceptId <= 0)
+			{
+				return GetNextThemaPathLegacy(themaId, out generalTime);
+			}
+
+			try
+			{
+				var rootConcept = ConceptManagementService.GetTreeConceptByElementId(eumkRootConceptId);
+				var viewRoot = new ConceptViewData(rootConcept, true, FilesManagementService, true, CurrentUserIsLector());
+				var themaView = FindConceptViewById(viewRoot, themaId);
+				if (themaView == null)
+				{
+					return GetNextThemaPathLegacy(themaId, out generalTime);
+				}
+
+				var paths = new List<string>();
+				var seconds = 0;
+				CollectTheoryPathsUnderThema(themaView, paths, ref seconds);
+				paths = paths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+				if (!paths.Any())
+				{
+					return GetNextThemaPathLegacy(themaId, out generalTime);
+				}
+
+				generalTime = seconds;
+				return paths;
+			}
+			catch
+			{
+				return GetNextThemaPathLegacy(themaId, out generalTime);
+			}
+		}
+
+		private List<string> GetNextThemaPathLegacy(int themaId, out int generalTime)
+		{
+			var concept = ConceptManagementService.GetLiteById(themaId);
+
+			if (concept.IsGroup)
+			{
+				var tree = ConceptManagementService.GetElementsByParentId(themaId);
+				generalTime = tree.Sum(x => WatchingTimeService.GetEstimatedTime(x.Container));
+				return  tree.Select(x => GetFilePath(x.Container)).ToList();
+			}
+			generalTime = WatchingTimeService.GetEstimatedTime(concept.Container);
+			return new List<string> { GetFilePath(concept.Container) };
+		}
+
+	}
+}

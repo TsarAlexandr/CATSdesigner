@@ -1,0 +1,133 @@
+<ng-container *var="files$ | async as files">
+  <div class="title">
+    <h1 mat-dialog-title>{{ popupTitle }}</h1>
+    <div class="cancel-button">
+      <button mat-icon-button (click)="onClose(files, false)">
+        <mat-icon>clear</mat-icon>
+      </button>
+    </div>
+  </div>
+  <div mat-dialog-content class="complex-grid-component__popover" #popoverContent>
+    <form class="example-form" #formElement>
+      <div class="basic-container" *ngIf="navItems?.length">
+        <span *ngFor="let item of navItems">
+          <!-- Handle branch node buttons here -->
+          <span *ngIf="item.children && item.children.length > 0; else singleConcept">
+            <button
+              mat-raised-button
+              class="drop_button"
+              [matMenuTriggerFor]="menu.childMenu"
+              [disabled]="shouldDisableConceptSelector"
+              (click)="selectConcept(item.Id)"
+            >
+              {{ item.Name }}
+              <mat-icon>expand_more</mat-icon>
+            </button>
+          </span>
+          <ng-template #singleConcept>
+            <button
+              mat-raised-button
+              class="drop_button"
+              [disabled]="shouldDisableConceptSelector"
+              (click)="selectConcept(item.Id)"
+            >
+              {{ item.Name }}
+            </button>
+          </ng-template>
+          <app-menu-item
+            #menu
+            [items]="item.children"
+            [disabled]="shouldDisableConceptSelector"
+            (onSelectConcept)="selectConcept($event)"
+          ></app-menu-item>
+        </span>
+        <div class="question-wrapper">
+          <app-help
+            [message]="addComponentHelp.message"
+            [action]="addComponentHelp.action"
+          ></app-help>
+        </div>
+      </div>
+      <div class="basic-container-text" *ngIf="selectedConcept">
+        {{ selectedConcept }}
+      </div>
+      <div class="rad-button">
+        <mat-radio-group style="display: block">
+          <mat-radio-button
+            [value]="MaterialFormType.Folder"
+            [checked]="isFolder"
+            style="padding-right: 20px"
+            (click)="switchFormTo(MaterialFormType.Folder)"
+            >{{ 'common.folder' | translate: 'Папка' }}
+          </mat-radio-button>
+          <mat-radio-button
+            [value]="MaterialFormType.File"
+            [checked]="isFile"
+            (click)="switchFormTo(MaterialFormType.File)"
+            >{{ 'common.file' | translate: 'Файл' }}
+          </mat-radio-button>
+        </mat-radio-group>
+      </div>
+      <mat-form-field *ngIf="isFolder">
+        <mat-label
+          >{{ 'common.inputFolderName' | translate: 'Введите имя папки' }}
+        </mat-label>
+        <input
+          name="folderName"
+          maxlength="100"
+          required
+          placeholder="{{ 'common.folderName' | translate: 'Имя папки' }}"
+          [(ngModel)]="data.name"
+          matInput
+        />
+      </mat-form-field>
+
+      <div *ngIf="isFile || (editMode && !isFolder)">
+        <mat-form-field>
+          <mat-label
+            >{{
+              'common.inputFileName' | translate: 'Введите название элемента'
+            }}
+          </mat-label>
+          <input
+            name="fileName"
+            maxlength="100"
+            required
+            placeholder="{{
+              'common.fileName' | translate: 'Введите название элемента'
+            }}"
+            [(ngModel)]="data.name"
+            matInput
+          />
+        </mat-form-field>
+      </div>
+    </form>
+    <app-file-uploader
+      *ngIf="!shouldHideFileUpload"
+      header="{{
+        isFolder
+          ? ('common.pinnedDocFolder' | translate: 'Прикрепленный материал (до 5 файлов, поддерживаются форматы .pdf, .docx, .doc)')
+          : ('common.pinnedDoc' | translate: 'Прикрепленный материал (поддерживаются файлы формата .pdf, .docx или .doc)')
+      }}"
+      (delete)="deleteFile($event)"
+      [files]="files"
+      [maxFiles]="isFile ? 1 : 5"
+      [disabled]="isFile ? files.length >= 1 : files.length >= 5"
+      (upload)="uploadFile($event)"
+    ></app-file-uploader>
+  </div>
+  <div mat-dialog-actions>
+    <button mat-raised-button (click)="onClose(files, false)">
+      {{ 'common.cancel' | translate: 'Отмена' }}
+    </button>
+      <button
+        mat-raised-button
+        (click)="onSaveClick(files)"
+        color="primary"
+        [disabled]="!isFormValid(files)"
+      >
+        {{ 'common.save' | translate: 'Сохранить' }}
+      </button>
+  </div>
+</ng-container>
+<!--[(ngModel)]="data.subjectName"-->

@@ -1,0 +1,31 @@
+.example-section {
+  display: flex;
+  flex-flow: column;
+  align-content: center;
+  margin-bottom: 15px;
+
+  & {
+    ::ng-deep {
+      .mat-checkbox {
+        &-label,
+        &-layout {
+          width: 100%;
+        }
+        &-layout {
+          white-space: normal;
+          display: block;
+        }
+      }
+    }
+  }
+}
+
+.example-margin {
+  margin: 5px 0;
+}
+
+.mat-dialog {
+  &-actions {
+    justify-content: flex-end;
+  }
+}

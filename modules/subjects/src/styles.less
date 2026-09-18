@@ -1,0 +1,198 @@
+/* You can add global styles to this file, and also import other style files */
+@import '~educats-common/index.css';
+@import '~@material/button/dist/mdc.button.min.css';
+@import '~material-design-icons/iconfont/material-icons.css';
+@import '~@material/data-table/dist/mdc.data-table.min.css';
+@import '~@material/tab-bar/dist/mdc.tab-bar.min.css';
+@import '~@material/tab-indicator/dist/mdc.tab-indicator.min.css';
+@import '~@material/tab/dist/mdc.tab.min.css';
+@import '~@material/dialog/dist/mdc.dialog.min.css';
+@import '~@material/checkbox/dist/mdc.checkbox.min.css';
+@import '~@material/form-field/dist/mdc.form-field.min.css';
+@import '~@angular/material/prebuilt-themes/indigo-pink.css';
+@import '~@material/drawer/dist/mdc.drawer.min.css';
+@import '~@material/list/dist/mdc.list.min.css';
+@import '~@material/theme/dist/mdc.theme.css';
+@import './assets//styles/styles.less';
+
+:root {
+  --mdc-theme-primary: #3f51b5;
+}
+
+body {
+  font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+  color: #363636;
+  font-size: 14px;
+}
+.mdc-drawer .mdc-list-item--activated {
+  color: var(--mdc-theme-primary, #3f51b5);
+}
+
+button {
+  background-color: transparent;
+  border: none;
+  outline: none;
+}
+
+.spinner {
+  width: 100%;
+  height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+._excel-file {
+  font-size: 36px;
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.text {
+  font-size: 14px;
+}
+
+.content {
+  padding: 0px 15px 15px;
+}
+
+.attachment-text {
+  padding-bottom: 9.5px;
+  margin: 10px 0 20px;
+  border-bottom: 1px solid #dddddd;
+  font-size: 22px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+table.mat-table {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-right: none;
+  box-shadow: none;
+}
+
+.mat-column-name {
+  padding-right: 10px !important;
+}
+
+.cdk-global-overlay-wrapper {
+  display: -webkit-box;
+  position: absolute;
+  z-index: 1000;
+  overflow: auto;
+  pointer-events: auto;
+}
+
+.cdk-global-scrollblock {
+  overflow-y: hidden;
+}
+
+.mat-dialog-container {
+  border-radius: unset !important;
+  position: relative;
+}
+
+.file-link {
+  padding: 0 !important;
+  min-width: auto !important;
+}
+
+.timepicker-backdrop-overlay {
+  z-index: 1001 !important;
+}
+
+.timepicker-overlay {
+  z-index: 1002 !important;
+}
+
+.tooltip {
+  white-space: pre-line;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  &-container {
+    width: 100%;
+    display: flex;
+    gap: 10px 10px;
+    justify-content: space-between;
+
+    &__column {
+      flex-direction: column;
+    }
+  }
+
+  &-group {
+    flex: 1;
+  }
+
+  &-error {
+    margin-bottom: 10px;
+  }
+}
+
+.actions-group {
+  display: flex;
+  gap: 0 14px;
+  align-items: center;
+
+  &__space-between {
+    justify-content: space-between;
+  }
+}
+
+.form {
+  &-container {
+    display: flex;
+
+    &__space {
+      &-between {
+        justify-content: space-between;
+      }
+    }
+  }
+}
+
+.mat-tooltip {
+  font-size: 14px;
+  white-space: pre-line;
+}
+
+.navigation-link {
+  cursor: pointer;
+  &:hover {
+    color: #3f51b5;
+  }
+}
+
+.mat-icon-button-app {
+  &:hover,
+  &:active {
+    color: #3f51b5;
+  }
+
+  color: #757575;
+}
+
+.cdk-overlay-pane {
+  max-width: 100vw !important;
+}
+
+td.mat-cell:last-of-type {
+  padding-right: 0 !important;
+}
+
+popover-content {
+  .popover {
+    position: absolute;
+    z-index: 1000001;
+  }
+}

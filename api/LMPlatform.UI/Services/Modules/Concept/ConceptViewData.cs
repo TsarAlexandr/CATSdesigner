@@ -1,0 +1,299 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.Serialization;
+using Application.Infrastructure.FilesManagement;
+using LMPlatform.Models;
+
+namespace LMPlatform.UI.Services.Modules.Concept
+{
+    [DataContract]
+    public class ConceptViewData
+    {
+        public ConceptViewData(Models.Concept concept)
+        {
+            Id = concept.Id;
+            Name = concept.Name;
+            ShortName = concept.Name.Length <= 20 ? concept.Name : $"{concept.Name.Substring(0, 20)}...";
+            Container = concept.Container;
+            ParentId = concept.ParentId.GetValueOrDefault();
+            IsGroup = concept.IsGroup;
+            Published = concept.Published;
+            
+            ReadOnly = concept.ReadOnly;
+            HasData = !string.IsNullOrEmpty(Container);
+            Prev = concept.PrevConcept;
+            Next = concept.NextConcept;
+            SubjectName = concept.Subject.Name;
+
+            if (concept.Test != null)
+            {
+                TestId = concept.Test.Id;
+                if (concept.Test.Questions != null)
+                {
+                    TestQuestionsCount = concept.Test.Questions.Count;
+                }
+            }
+        }
+
+        public ConceptViewData(Models.Concept concept, bool buildTree, bool isRoot, bool isLector)
+            : this(concept)
+        {
+            if (isRoot)
+            {
+                InitStateOfModulesPublish(concept);
+            }
+
+            if (!buildTree) return;
+            if (!concept.Published && !(isRoot && isLector) && !concept.ReadOnly) return;
+
+            Children = new List<ConceptViewData>();
+            InitTree(concept.Children, isLector);
+        }
+
+        public ConceptViewData(Models.Concept concept, bool buildTree, IFilesManagementService filesManagementService, bool isRoot, bool isLector)
+           : this(concept)
+        {
+            if (isRoot)
+            {
+                InitStateOfModulesPublish(concept);
+            }
+
+            if (!buildTree) return;
+            if (!concept.Published && !(isRoot && isLector) && !concept.ReadOnly) return;
+
+            Children = new List<ConceptViewData>();
+            Attachments = string.IsNullOrEmpty(concept.Container) ? new List<Attachment>() : filesManagementService.GetAttachments(concept.Container);
+            InitTree(concept.Children, filesManagementService, isLector);
+        }
+
+        public ConceptViewData(Models.Concept concept, bool buildTree, Func<Models.Concept, bool> filterFirstLevelChildren, bool isRoot, bool isLector)
+            : this(concept)
+        {
+            if (isRoot)
+            {
+                InitStateOfModulesPublish(concept);
+            }
+
+            if (!buildTree) return;
+            if (!concept.Published && !(isRoot && isLector) && !concept.ReadOnly) return;
+
+            Children = new List<ConceptViewData>();
+            if (filterFirstLevelChildren == null)
+            {
+	            InitTree(concept.Children);
+            }
+            else
+            {
+	            InitTree(concept.Children.Where(filterFirstLevelChildren).ToList());
+            }
+        }
+
+        private void InitTree(ICollection<Models.Concept> ch, bool isLector = false)
+        {
+	        if (ch != null && ch.Any())
+	        {
+                Children = ch.Where(c => IsVisibleChild(c, isLector))
+                             .Select(c => new ConceptViewData(c, true, false, isLector)).ToList();
+	        }
+        }
+
+        private void InitTree(ICollection<Models.Concept> ch, IFilesManagementService filesManagementService, bool isLector = false)
+        {
+            if (ch != null && ch.Any())
+            {
+                Children = ch.Where(c => IsVisibleChild(c, isLector))
+                             .Select(c => new ConceptViewData(c, true, filesManagementService, false, isLector)).ToList();
+            }
+        }
+
+        private bool IsVisibleChild(Models.Concept c, bool isLector)
+        {
+            if (c.ReadOnly)
+            {
+                return true;
+            }
+
+            var insideUnpublishedSection = this.ReadOnly && !this.Published;
+            if (insideUnpublishedSection && IsAutoImportedContent(c))
+            {
+                return false;
+            }
+
+            if (c.Published)
+            {
+                return true;
+            }
+
+            return isLector && !IsAutoImportedContent(c);
+        }
+
+        private static bool IsAutoImportedContent(Models.Concept c)
+        {
+            return c.LectureId.HasValue || c.LabId.HasValue || c.PracticalId.HasValue || c.Test != null;
+        }
+
+        private void InitStateOfModulesPublish(Models.Concept concept)
+        {
+            Models.Concept practiceConcept = concept?.Children?.FirstOrDefault(x => x.Name == "Практический раздел");
+
+            IncludeLabs = practiceConcept?.Children?.FirstOrDefault(x => x.LabId.HasValue)?.Published ?? null;
+            IncludeWorkshops = practiceConcept?.Children?.FirstOrDefault(x => x.PracticalId.HasValue)?.Published ?? null;
+
+            IncludeLectures = concept?.Children?.FirstOrDefault(x => x.Name == "Теоретический раздел")?.Published ?? null;
+            IncludeTests = concept?.Children?.FirstOrDefault(x => x.Name == "Блок контроля знаний")?.Published ?? null;
+        }
+
+        [DataMember]
+        public int Id { get; set; }
+
+        [DataMember]
+        public string Name { get; set; }
+
+        [DataMember]
+        public string ShortName { get; set; }
+
+        [DataMember]
+        public string SubjectName { get; set; }
+
+        [DataMember]
+        public string Container { get; set; }
+
+        [DataMember]
+        public string FilePath { get; set; }
+
+		[DataMember]
+        public int ParentId { get; set; }
+
+        [DataMember]
+        public bool IsGroup { get; set; }
+
+        [DataMember]
+        public bool Published { get; set; }
+
+        [DataMember]
+        public bool ReadOnly { get; set; }
+
+        [DataMember]
+        public bool HasData { get; set; }
+
+        [DataMember]
+        public int? Next { get; set; }
+        [DataMember]
+        public int? Prev { get; set; }
+        [DataMember]
+        public bool? IncludeWorkshops { get; set; }
+        [DataMember]
+        public bool? IncludeLabs { get; set; }
+        [DataMember]
+        public bool? IncludeLectures { get; set; }
+        [DataMember]
+        public bool? IncludeTests { get; set; }
+
+        [DataMember]
+        public int? TestId { get; set; } = null;
+
+        [DataMember]
+
+        public int? TestQuestionsCount { get; set; } = null;
+
+
+        [DataMember(Name = "children")]
+        public ICollection<ConceptViewData> Children 
+        { 
+            get => _childrens.SortDoubleLinkedList();
+            set => _childrens = value;
+        }
+
+        [DataMember]
+        public ICollection<Attachment> Attachments { get; set; }
+
+        private ICollection<ConceptViewData> _childrens;
+    }
+
+    [DataContract]
+    public class AttachViewData
+    {
+        private string GetFilePath()
+        {
+            var uploadFolder = "UploadedFiles";
+            return $"/{uploadFolder}/{FilePath}/{FileName}";
+        }
+
+
+        public AttachViewData(int id, string name, Attachment att)
+        {
+            Id = id;
+            Name = name;
+            HasData = id>0;
+            if (att == null) return;
+            FilePath = att.PathName;
+            FileName = att.FileName;
+            FullPath = GetFilePath();
+            HasAttach = true;
+        }
+
+        [DataMember]
+        public int Id { get; set; }
+
+        [DataMember]
+        public string Name { get; set; }
+
+        [DataMember]
+        public string FilePath { get; set; }
+
+        [DataMember]
+        public string FileName { get; set; }
+
+        [DataMember]
+        public string FullPath { get; set; }
+
+        [DataMember]
+        public bool HasData { get; set; }
+
+        [DataMember]
+        public bool HasAttach { get; set; }
+    }
+
+    public static class ConceptViewDataExtension
+    {
+        public static List<ConceptViewData> SortDoubleLinkedList(this IEnumerable<ConceptViewData> source)
+        {
+            var checkCount = 0;
+            var res = new List<ConceptViewData>();
+            if (source == null)
+            {
+	            return res;
+            }
+
+            var first = source.FirstOrDefault(s => s.Prev == null);
+            if (first == null)
+            {
+                res.AddRange(source);
+                return res;
+            }
+            res.Add(first);
+            var next = source.FirstOrDefault(s => s.Id == first.Next.GetValueOrDefault(-1));
+            if (next == null)
+            {
+                res.AddRange(source.Where(i=> res.All(r => r.Id != i.Id)));
+                return res;
+            }
+
+            res.Add(next);
+            first = next;
+            while (next != null && checkCount < 1000)
+            {
+	            next = source.FirstOrDefault(s => s.Id == first.Next.GetValueOrDefault());
+	            if (next != null)
+		            res.Add(next);
+	            first = next;
+	            checkCount++;
+            }
+
+            res.AddRange(source.Where(i => res.All(r => r.Id != i.Id)));
+
+            return res;
+        }
+    }
+}

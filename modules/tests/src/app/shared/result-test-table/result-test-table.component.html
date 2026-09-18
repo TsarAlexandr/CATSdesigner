@@ -1,0 +1,202 @@
+<ng-container *ngIf="scareThing?.length && !loading">
+  <ng-container *ngFor="let studentResults of scareThing; let iq = index">
+    <div
+      class="result-test-table-container"
+      *ngIf="studentResults && studentResults.length"
+    >
+      <div class="result-test-table-subgroup">
+        <span>
+          {{
+            ('text.test.res.group' | translate: 'Группа ') +
+              group +
+              (showAsSubGroup
+                ? ('text.test.res.subgroup' | translate: ', Подгруппа ') +
+                  (iq + 1)
+                : '')
+          }}
+        </span>
+        <div class="result-test-table-subgroup__right-side">
+          <div class="help">
+            <app-help
+              [message]="help.message"
+              [action]="help.action"
+              [placement]="'bottom-left'"
+            ></app-help>
+          </div>
+          <div
+            class="result-test-table-subgroup-load"
+            (click)="downloadExcel(studentResults)"
+            [matTooltip]="'excel.export' | translate: 'Экспорт в Эксель'"
+          ></div>
+        </div>
+      </div>
+      <div class="result-test-table-table">
+        <mat-table
+          [dataSource]="studentResults"
+          class="mat-elevation-z8 table-test-bg"
+        >
+          <!-- Position Column -->
+          <ng-container matColumnDef="Id">
+            <mat-header-cell *matHeaderCellDef class="mat-header-cell-id">
+              №</mat-header-cell
+            >
+            <mat-cell
+              *matCellDef="let index = index"
+              class="mat-header-cell-id"
+            >
+              {{
+                index === studentResults.length - 1 ? null : index + 1
+              }}</mat-cell
+            >
+          </ng-container>
+
+          <!-- Name Column -->
+          <ng-container matColumnDef="Name">
+            <mat-header-cell
+              *matHeaderCellDef
+              class="mat-header-cell-description"
+              >{{ 'text.students' | translate: 'Студенты' }}</mat-header-cell
+            >
+            <mat-cell
+              *matCellDef="let element; let index = index"
+              class="mat-header-cell-description mat-cell-student-name"
+              [matTooltip]="
+                index === studentResults.length - 1 ? null : element[1].name
+              "
+              [matTooltipDisabled]="index === studentResults.length - 1"
+            >
+              {{
+                index === studentResults.length - 1
+                  ? ('text.test.result.percent'
+                    | translate: 'Средняя оценка (процент) за тест')
+                  : element[1].name
+              }}
+            </mat-cell>
+          </ng-container>
+
+          <ng-container
+            *ngFor="let i of testColumnIndices"
+            [matColumnDef]="'test' + i"
+          >
+            <mat-header-cell
+              *matHeaderCellDef
+              class="mat-header-cell-action mat-header-test-name"
+              [matTooltip]="getTestHeaderTooltip(studentResults, i)"
+              >{{
+                ('text.test' | translate: 'Тест') + ' ' + (i + 1)
+              }}</mat-header-cell
+            >
+            <mat-cell
+              *matCellDef="let element; let index = index"
+              class="mat-header-cell-action mat-header-test-name"
+              (click)="
+                index !== studentResults.length - 1 &&
+                  openAnswersDialog(
+                    element[1].test[i].points,
+                    element[1].name,
+                    element[1].test[i].testName,
+                    element[1].test[i].testId,
+                    element[1].id
+                  )
+              "
+              [matTooltip]="getTestTooltip(element[1].test[i])"
+            >
+              {{
+                index === studentResults.length - 1
+                  ? averageMarkForTest[iq][element[1].test[i].testId] != null
+                    ? averageMarkForTest[iq][element[1].test[i].testId].toFixed(
+                        1
+                      ) +
+                      ' (' +
+                      averagePercentForTest[iq][
+                        element[1].test[i].testId
+                      ]?.toFixed(0) +
+                      '%)'
+                    : null
+                  : (element[1].test[i].points | isInteger)
+                    ? element[1].test[i].points +
+                      ' (' +
+                      element[1].test[i].percent +
+                      '%)' +
+                      (element[1].test[i].endTime 
+                        ? ' ' + (element[1].test[i].endTime | date:'dd.MM')
+                        : '')
+                    : ('text.test.not.passed' | translate: 'тест не пройден')
+              }}
+            </mat-cell>
+          </ng-container>
+
+          <ng-container matColumnDef="average">
+            <mat-header-cell
+              *matHeaderCellDef
+              class="mat-header-cell-average"
+              >{{
+                'text.test.average.score' | translate: 'Средняя оценка'
+              }}</mat-header-cell
+            >
+            <mat-cell
+              *matCellDef="let element; let index = index"
+              class="mat-header-cell-average"
+              [matTooltip]="getAverageTooltip(element)"
+              matTooltipPosition="below"
+              [matTooltipDisabled]="size && element[3]"
+              [class.notAll]="size && !element[3]"
+            >
+              {{
+                index === studentResults.length - 1
+                  ? averageMarkForTest[iq].average != null
+                    ? averageMarkForTest[iq].average.toFixed(1)
+                    : null
+                  : element[2].slice() === '0'
+                    ? null
+                    : element[2].slice()
+              }}
+            </mat-cell>
+          </ng-container>
+
+          <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+          <mat-row *matRowDef="let row; columns: displayedColumns"></mat-row>
+        </mat-table>
+      </div>
+      <div
+        class="result-test-table-chart"
+        *ngIf="subgroupCharts[iq]?.showChart"
+      >
+        <div class="result-test-table-chart-name">
+          {{ getChartTitle(iq) }}
+        </div>
+        <div class="result-test-table-chart-scroll">
+          <div class="result-test-table-chart-canvas-host">
+            <canvas
+              class="result-test-table-chart-graph"
+              baseChart
+              [datasets]="subgroupCharts[iq].data"
+              [labels]="subgroupCharts[iq].labels"
+              [options]="barChartOptions"
+              [colors]="barChartColors"
+              [plugins]="barChartPlugins"
+              [legend]="barChartLegend"
+              [chartType]="barChartType"
+            >
+            </canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</ng-container>
+
+<ng-container *ngIf="loading">
+  <mat-card>
+    <mat-card-content>
+      <section class="example-section">
+        <mat-progress-bar
+          class="example-margin"
+          [color]="'primary'"
+          [mode]="'indeterminate'"
+        >
+        </mat-progress-bar>
+      </section>
+    </mat-card-content>
+  </mat-card>
+</ng-container>

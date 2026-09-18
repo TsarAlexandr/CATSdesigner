@@ -1,0 +1,102 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+h1[mat-dialog-title] {
+  font-weight: 400;
+  margin: 0;
+}
+
+.mat-dialog-content {
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 750px;
+}
+
+.form-field {
+  width: 100%;
+}
+
+.choose-template {
+  display: flex;
+  justify-content: space-between;
+
+  mat-form-field {
+    flex: auto;
+    padding-right: 10px;
+    max-width: 350px;
+  }
+
+  button {
+    align-self: end;
+    float: right;
+  }
+}
+
+.save-template {
+  display: flex;
+  justify-content: space-between;
+
+  div {
+    display: flex;
+  }
+
+  mat-form-field {
+    flex: auto;
+    padding-right: 10px;
+    max-width: 350px;
+  }
+
+  button {
+    align-self: center;
+    float: right;
+  }
+}
+
+.apply-template {
+  display: flex;
+  justify-content: space-between;
+
+  mat-form-field {
+    flex: auto;
+    padding-right: 10px;
+    max-width: 350px;
+  }
+
+  button {
+    align-self: center;
+    float: right;
+  }
+}
+
+.dialog-tab-content {
+  mat-form-field {
+    width: 100%;
+  }
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.applyButton {
+  background-color: rgba(125, 75, 218, 0.96);
+}
+
+.saveTemplateButton {
+  background-color: rgba(219, 114, 44, 0.96);
+}

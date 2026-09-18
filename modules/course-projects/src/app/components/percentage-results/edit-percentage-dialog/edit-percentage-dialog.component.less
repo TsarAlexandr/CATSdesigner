@@ -1,0 +1,69 @@
+:host {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  .edit-percentage-dialog {
+    &__container {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 12px;
+      height: 100%;
+    }
+    &__header {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    &__title {
+      font-weight: 400;
+      margin: 0 0 5px;
+    }
+
+    &__subtitle {
+      color: #808080;
+    }
+
+    &__close-btn {
+    }
+  }
+
+  h1 {
+    font-weight: 400;
+  }
+
+  h5 {
+    font-weight: 400;
+    margin: -10px 0 10px 0;
+  }
+
+  .dialog-content {
+    height: 100%;
+
+    mat-form-field {
+      margin-bottom: 10px;
+    }
+  }
+
+  .dialog__actions {
+    justify-content: flex-end;
+    margin-top: 100px;
+  }
+
+  .dialog-button {
+  }
+
+  .form-field {
+    width: 100%;
+
+    .commentInput {
+      height: 40px;
+    }
+
+    .checkbox {
+      position: absolute;
+      top: 0;
+      right: 0;
+    }
+  }
+}

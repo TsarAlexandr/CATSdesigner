@@ -1,0 +1,194 @@
+::ng-deep {
+  .mat-select-value {
+    color: #fff;
+  }
+  .mat-select-arrow {
+    color: #fff;
+  }
+}
+
+.container {
+  display: flex;
+  height: 100vh;
+}
+
+table {
+  border-spacing: 0px;
+}
+
+.col-second {
+  width: 46vw;
+  vertical-align: middle;
+  text-align: justify;
+  padding: 40px 50px 50px 50px;
+  color: black;
+}
+
+.col-first {
+  width: 56vw;
+  vertical-align: middle;
+  padding: 70px;
+  background-image: linear-gradient(-135deg, #3597ffcc, #ff7c8dcc);
+
+  .mselect {
+    width: 40px;
+    margin-left: 40px;
+  }
+
+  .cat {
+    width: 18vw;
+    display: block;
+    margin: 0 auto;
+  }
+
+  > img {
+    width: 18vw;
+    display: block;
+    margin: 0 auto;
+  }
+
+  > p {
+    margin-top: 0.8vw;
+    color: #ffffff;
+    font-size: 1.6vw;
+    text-align: center;
+  }
+
+  > h1 {
+    font-size: 2vw;
+    color: #ffffff;
+    text-align: center;
+    margin-top: 3vw;
+  }
+
+  > .logo {
+    margin-top: -15px;
+    width: 18vw;
+  }
+
+  > .btn_back {
+    margin-top: 12vh;
+    text-align: center;
+
+    > button {
+      font-size: 1.3vw;
+      width: 26vw;
+      height: 48px;
+      color: #3f51b5;
+    }
+  }
+}
+
+.title {
+  font-size: 36px;
+  text-align: center;
+  padding: 0px 0px 20px 0px;
+  line-height: 120%;
+}
+.page-wrap {
+  display: block;
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+#mascot-body {
+  width: 11vw;
+  position: relative;
+  z-index: 1;
+}
+
+#mascot-tail {
+  width: 10vw;
+  margin-left: -3.5vw;
+  animation:
+    mascot-tail__rotation__1 1000ms 0ms linear forwards,
+    mascot-tail__rotation__2 1000ms 1000ms linear forwards;
+}
+
+@keyframes mascot-tail__rotation__1 {
+  from {
+    transform: translateX(0) translateY(0) rotate(0deg);
+  }
+
+  to {
+    transform: translateX(0px) translateY(2.5vw) rotate(40deg);
+  }
+}
+@keyframes mascot-tail__rotation__2 {
+  from {
+    transform: translateX(0px) translateY(2.5vw) rotate(40deg);
+  }
+
+  to {
+    transform: translateX(0) translateY(0) rotate(0deg);
+  }
+}
+
+@media (max-width: 1024px) {
+  .col-first {
+    width: 50vw;
+
+    > h1 {
+      font-size: 2.7vw;
+    }
+
+    > p {
+      font-size: 2.2vw;
+      text-align: center;
+    }
+
+    img,
+    .cat,
+    .logo {
+      width: 25vw;
+    }
+  }
+
+  #mascot-body {
+    width: 14.5vw;
+  }
+
+  #mascot-tail {
+    width: 12.5vw;
+  }
+}
+
+@media (max-width: 657px) {
+  .container {
+    flex-wrap: wrap;
+  }
+
+  .col-first {
+    width: 100vw;
+    height: 250px;
+    padding: 0;
+
+    > .cat {
+      display: none;
+    }
+
+    > h1 {
+      font-size: 19px;
+    }
+
+    > p {
+      font-size: 14px;
+      text-align: center;
+    }
+
+    > .logo {
+      width: 160px;
+    }
+  }
+
+  .col-second {
+    width: 100%;
+  }
+
+  .btn_back {
+    margin-top: 0 !important;
+    button {
+      font-size: 16px !important;
+    }
+  }
+}

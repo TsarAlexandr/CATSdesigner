@@ -1,0 +1,83 @@
+.basic-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#popoverContent {
+  min-height: 200px;
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.question-wrapper {
+  display: flex;
+  margin-left: auto;
+  margin-left: 10px;
+}
+
+.basic-container-text {
+  margin-top: 10px;
+  font:
+    400 16px/24px Roboto,
+    'Helvetica Neue',
+    sans-serif;
+}
+
+.mat-dialog-title {
+  font:
+    20px / 32px Roboto,
+    'Helvetica Neue',
+    sans-serif;
+  margin-bottom: 40px;
+}
+
+.title {
+  display: flex;
+  justify-content: space-between;
+}
+
+.cancel-button {
+  position: relative;
+  right: 0;
+  top: -5px;
+}
+
+.rad-button {
+  margin-bottom: 20px;
+  margin-top: 20px;
+}
+
+.drop_button {
+  background-color: white;
+  color: black;
+  font-weight: 400;
+}
+
+.example-form {
+  width: 550px;
+  margin-bottom: 10px;
+
+  .example-full-width {
+    width: 100%;
+  }
+}
+
+.complex-grid-component__popover {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-grow: 1;
+}
+
+.mat-dialog {
+  &-actions {
+    justify-content: flex-end;
+    min-height: 160px;
+    align-items: flex-end;
+  }
+}

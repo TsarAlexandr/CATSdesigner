@@ -1,0 +1,49 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+}
+
+.answers-popup {
+  &-subtitle {
+    font-size: 14px;
+    color: rgb(130 130 130);
+    margin-bottom: 4px;
+    line-height: 1.35;
+  }
+
+  &-content {
+    margin-top: 10px;
+    color: #363636;
+    font:
+      400 16px/22px 'Roboto',
+      'Helvetica Neue',
+      sans-serif;
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  &-general {
+    &-wrapper {
+      margin-bottom: 20px;
+    }
+
+    &-mark {
+      margin-top: 5px;
+      color: #363636;
+      font:
+        400 16px/22px 'Roboto',
+        'Helvetica Neue',
+        sans-serif;
+    }
+  }
+
+  &-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

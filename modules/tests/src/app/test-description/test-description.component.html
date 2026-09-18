@@ -1,0 +1,37 @@
+<div class="test-description-container" *ngIf="test">
+  <div class="test-description-wrapper">
+    <div class="test-description-title">
+      <div class="test-description-title-text">
+        {{ test.Title }}
+      </div>
+    </div>
+    <div class="test-description-wrapper-description">
+      <div class="test-description-block">
+        <div class="test-description-text">{{ test.Description | translate:test.Description }}</div>
+        <div class="test-description-button">
+          <button
+            *ngIf="test.OngoingTestId === 0"
+            (click)="startTest()"
+            mat-raised-button
+            color="primary"
+            [matTooltip]="'text.test.start' | translate: 'Начать тест'"
+            matTooltipClass="example-tooltip-blue"
+          >
+            {{ 'text.test.dalee' | translate: 'Далее' }}
+          </button>
+
+          <button
+            *ngIf="test.OngoingTestId !== 0"
+            (click)="finishTest()"
+            mat-raised-button
+            color="primary"
+            [matTooltip]="'text.test.finish' | translate: 'Завершить тест'"
+            matTooltipClass="example-tooltip-blue"
+          >
+            {{ 'text.test.finish' | translate: 'Завершить тест' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,122 @@
+.visit-lectures-component {
+  &-actions {
+    display: flex;
+    gap: 0 14px;
+    height: 36px;
+    margin-top: 20px;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  &__table-lecture-visiting {
+    margin-top: 20px;
+    table.mat-table {
+      width: 100%;
+    }
+
+    .mat-header-cell {
+      font-family: Roboto, sans-serif;
+      font-weight: 600;
+      color: #363636;
+      font-size: 14px;
+    }
+
+    .header-date {
+      transform: rotate(270deg);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .mat-column-name {
+      padding-left: 10px;
+      width: fit-content;
+      min-width: 200px;
+    }
+
+    .mat-header-cell.mat-column-name {
+      text-align: center;
+    }
+
+    .mat-header-cell.mat-column-name,
+    .mat-header-cell.mat-column-position {
+      border-top: none;
+      vertical-align: initial;
+    }
+
+    .mat-column-position:first-of-type,
+    .mat-header-cell:first-of-type {
+      max-width: 50px;
+      max-height: 55px;
+      width: 35px;
+      height: 55px;
+      box-sizing: border-box;
+    }
+
+    td.mat-cell:last-of-type,
+    th.mat-header-cell:last-of-type {
+      padding-right: 0;
+    }
+
+    tr td.mat-cell.mat-column-position {
+      padding-left: 10px;
+      padding-right: 5px;
+    }
+
+    th.mat-header-cell:first-of-type {
+      padding-right: 0;
+      padding-left: 0;
+      text-align: center;
+    }
+
+    td.mat-cell:first-of-type {
+      padding-left: 0;
+      padding-right: 0;
+      text-align: center;
+    }
+
+    .mat-column-name {
+      padding-left: 10px;
+    }
+
+    tr.mat-header-row {
+      height: 86px;
+    }
+
+    td {
+      position: relative;
+    }
+
+    td,
+    th {
+      border-right: 1px solid rgba(0, 0, 0, 0.12);
+      border-bottom: 0;
+      border-top: 1px solid rgba(0, 0, 0, 0.12);
+    }
+  }
+}
+
+.comment {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  &-icon {
+    font-size: 12px;
+    &.mat-icon {
+      width: auto;
+      height: auto;
+    }
+  }
+}
+
+._excel-file {
+  margin-left: 0;
+  font-size: 28px;
+  height: 28px;
+  .iconify {
+    color: rgb(61, 80, 182);
+  }
+}
+
+.name {
+  text-align: center;
+}

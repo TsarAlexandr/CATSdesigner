@@ -1,0 +1,103 @@
+import { Component, OnInit } from '@angular/core'
+import { TestPassingService } from '../service/test-passing.service'
+import { Test } from '../models/test.model'
+import { AutoUnsubscribeBase } from '../core/auto-unsubscribe-base'
+import { AutoUnsubscribe } from '../decorator/auto-unsubscribe'
+import { switchMap, takeUntil } from 'rxjs/operators'
+import { Subject, timer } from 'rxjs'
+import { Router } from '@angular/router'
+import { ActivatedRoute } from '@angular/router'
+import { StorageKeys } from '../../../../../container/src/app/core/models/storage-keys.enum'
+
+@AutoUnsubscribe
+@Component({
+  selector: 'app-page',
+  templateUrl: './page.component.html',
+  styleUrls: ['./page.component.less'],
+})
+export class PageComponent extends AutoUnsubscribeBase implements OnInit {
+  public knowledgeControlTests: Test[] = []
+  public beforeEUMKTests: Test[] = []
+  public forEUMKTests: Test[] = []
+  public selfControlTests: Test[] = []
+  public nNTests: Test[] = []
+  public loading: boolean
+  public allTests: Test[]
+  public currentTabIndex: number = 0
+  public filterResult: string = ''
+  private unsubscribeStream$: Subject<void> = new Subject<void>()
+
+  constructor(
+    private testPassingService: TestPassingService,
+    private router: Router,
+    private route: ActivatedRoute
+  ) {
+    super()
+  }
+
+  ngOnInit() {
+    const subject = JSON.parse(localStorage.getItem(StorageKeys.CurrentSubject))
+    
+    const complexTestId = sessionStorage.getItem(StorageKeys.ComplexTestId)
+
+    if (complexTestId) {
+      sessionStorage.setItem(StorageKeys.TestFromComplex, 'true')
+      this.router.navigate(['/test/' + complexTestId])
+      sessionStorage.removeItem(StorageKeys.ComplexTestId)
+    } else {
+      sessionStorage.removeItem(StorageKeys.TestFromComplex)
+      sessionStorage.removeItem(StorageKeys.ComplexRoute)
+      sessionStorage.removeItem(StorageKeys.ComplexId)
+      this.getTests(subject.id)
+    }
+  }
+
+  public sortTests(tests) {
+    this.loading = true
+    this.knowledgeControlTests = []
+    this.selfControlTests = []
+    this.nNTests = []
+    this.beforeEUMKTests = []
+    this.forEUMKTests = []
+    tests.forEach((test) => {
+      if (test.ForSelfStudy) {
+        this.selfControlTests.push(test)
+      } else if (test.ForNN) {
+        this.nNTests.push(test)
+      } else if (test.BeforeEUMK) {
+        this.beforeEUMKTests.push(test)
+      } else if (test.ForEUMK) {
+        this.forEUMKTests.push(test)
+      } else {
+        this.knowledgeControlTests.push(test)
+      }
+    })
+    this.loading = false
+  }
+
+  public filterTests(searchValue: string): void {
+    const filteredTests = this.allTests.filter((test) => {
+      return test.Title.includes(searchValue)
+    })
+    this.sortTests(filteredTests)
+    this.filterResult = searchValue
+  }
+
+  public onChange(event: any): void {
+    this.currentTabIndex = event.index
+    console.log(event)
+  }
+
+  private getTests(subjectId): void {
+    timer(0, 3000)
+      .pipe(takeUntil(this.unsubscribeStream$))
+      .pipe(switchMap(() => this.testPassingService.getAvailableTests(subjectId)))
+      .subscribe((tests: Test[]) => {
+        this.allTests = tests
+        const filteredTests = this.filterResult
+          ? tests.filter((test: Test) => test.Title.includes(this.filterResult))
+          : tests
+        this.sortTests(filteredTests)
+      })
+  }
+}

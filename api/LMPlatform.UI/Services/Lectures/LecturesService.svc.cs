@@ -1,0 +1,513 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Application.Core.Data;
+using Application.Infrastructure.GroupManagement;
+using Application.Infrastructure.SubjectManagement;
+using LMPlatform.UI.Services.Modules.Lectures;
+using System.Globalization;
+using Newtonsoft.Json;
+using WebMatrix.WebData;
+using Application.Core;
+using Application.Core.Helpers;
+using LMPlatform.UI.Attributes;
+
+namespace LMPlatform.UI.Services.Lectures
+{
+    using Application.Infrastructure.FilesManagement;
+    using Models;
+    using Modules;
+
+    [JwtAuth]
+    public class LecturesService : ILecturesService
+    {
+        private readonly LazyDependency<ISubjectManagementService> subjectManagementService = new LazyDependency<ISubjectManagementService>();
+        private readonly LazyDependency<IGroupManagementService> groupManagementService = new LazyDependency<IGroupManagementService>();
+        private readonly LazyDependency<IFilesManagementService> filesManagementService = new LazyDependency<IFilesManagementService>();
+
+        public IGroupManagementService GroupManagementService => groupManagementService.Value;
+
+        public ISubjectManagementService SubjectManagementService => subjectManagementService.Value;
+
+        public IFilesManagementService FilesManagementService => filesManagementService.Value;
+
+        public LecturesResult GetLectures(string subjectId)
+        {
+
+            try
+            {
+                var id = int.Parse(subjectId);
+                var lecturesQuery = new Query<Subject>(e => e.Id == id).Include(e => e.Lectures);
+                var model = SubjectManagementService.GetSubject(lecturesQuery).Lectures.Select(e => new LecturesViewData(e)).ToList();
+
+                return new LecturesResult
+                {
+                    Lectures = model.OrderBy(e => e.Order).ToList(),
+                    Message = "text.lecture.get.response.success",
+                    Code = "200"
+                };
+            }
+            catch
+            {
+                return new LecturesResult
+                {
+                    Message = "text.lecture.get.response.failure.unknown",
+                    Code = "500"
+                };
+            }
+        }
+
+        public CalendarResult GetCalendar(string subjectId)
+        {
+            try
+            {
+	            var id = int.Parse(subjectId); 
+				var lecturesScheduleVisitingsQuery = new Query<Subject>(e => e.Id == id)
+					.Include(e => e.LecturesScheduleVisitings.Select(x => x.Lecturer.User));
+                var subjectOwner = SubjectManagementService.GetSubjectOwner(id);
+                var entities = SubjectManagementService.GetSubject(lecturesScheduleVisitingsQuery)
+                        .LecturesScheduleVisitings
+                        .OrderBy(e => e.Date);
+                var model = entities.Select(e =>
+                {
+                    if (e.Lecturer == null)
+                    {
+                        e.Lecturer = subjectOwner;
+                    }
+                    return new CalendarViewData(e);
+                }).ToList();
+
+                return new CalendarResult
+                {
+                    Calendar = model,
+                    Message = "text.schedule.get.response.success",
+                    Code = "200"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new CalendarResult
+                {
+                    Message = "text.schedule.get.response.faulure.unknown",
+                    Code = "500"
+                };
+            }
+        }
+
+        public ResultViewData UpdateLecturesOrder(int subjectId, int prevIndex, int curIndex)
+        {
+            try
+            {
+                var isUserAssigned = SubjectManagementService.IsUserAssignedToSubjectAndLector(UserContext.CurrentUserId, subjectId);
+                if (!isUserAssigned)
+                {
+                    return new ResultViewData
+                    {
+                        Code = "500",
+                        Message = "text.lectures.save.response.failure.unattachedUser"
+                    };
+                }
+                SubjectManagementService.UpdateLecturesOrder(subjectId, prevIndex, curIndex);
+
+                return new ResultViewData
+                {
+                    Code = "200",
+                    Message = "text.lectures.save.response.success"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResultViewData
+                {
+                    Code = "500",
+                    Message = ex.Message
+                };
+            }
+        }
+
+        public ResultViewData Save(int subjectId, int id, string theme, int duration, int order, string pathFile, string attachments)
+        {
+            try
+            {
+                var isUserAssigned = SubjectManagementService.IsUserAssignedToSubjectAndLector(UserContext.CurrentUserId, subjectId);
+                if (!isUserAssigned)
+                {
+                    return new ResultViewData
+                    {
+                        Code = "500",
+                        Message = "text.lectures.save.response.failure.unattachedUser"
+                    };
+                }
+                var normalizedTheme = theme?.Trim();
+                if (string.IsNullOrWhiteSpace(normalizedTheme) || normalizedTheme.Length > 256)
+                {
+                    return new ResultViewData
+                    {
+                        Code = "500",
+                        Message = "text.lecture.save.response.failure.validation"
+                    };
+                }
+                if (duration < 1 || duration > 36)
+                {
+                    return new ResultViewData
+                    {
+                        Code = "500",
+                        Message = "text.lecture.save.response.failure.validation"
+                    };
+                }
+                var attachmentsModel = JsonConvert.DeserializeObject<List<Attachment>>(attachments).ToList();
+                SubjectManagementService.SaveLectures(new Lectures
+                {
+                    SubjectId = subjectId,
+                    Duration = duration,
+                    Theme = theme,
+                    Order = order,
+                    Attachments = pathFile,
+                    Id = id
+                }, attachmentsModel, UserContext.CurrentUserId);
+
+                return new ResultViewData
+                {
+                    Message = "text.lecture.save.response.success",
+                    Code = "200"
+                };
+            }
+            catch (Exception e)
+            {
+                return new ResultViewData
+                {
+                    Message = "Произошла ошибка при сохранении лекции." + e.Message,
+                    Code = "500"
+                };
+            }
+        }
+
+        public ResultViewData Delete(int id, int subjectId)
+        {
+            try
+            {
+                var isUserAssigned = SubjectManagementService.IsUserAssignedToSubjectAndLector(UserContext.CurrentUserId, subjectId);
+                if (!isUserAssigned)
+                {
+                    return new ResultViewData
+                    {
+                        Code = "500",
+                        Message = "text.lecture.delete.response.failure.unattachedUser"
+                    };
+                }
+                SubjectManagementService.DeleteLection(new Lectures { Id = id });
+                return new ResultViewData
+                {
+                    Message = "text.lecture.delete.response.success",
+                    Code = "200"
+                };
+            }
+            catch (Exception e)
+            {
+                return new ResultViewData
+                {
+                    Message = "Произошла ошибка при удалении лекции." + e.Message,
+                    Code = "500"
+                };
+            }
+        }
+
+        public StudentMarkForDateResult GetMarksCalendarData(int dateId, int subjectId, int groupId)
+        {
+            try
+            {
+                var visitingDate =
+                    SubjectManagementService.GetScheduleVisitings(
+                        new Query<LecturesScheduleVisiting>(e => e.SubjectId == subjectId && e.Id == dateId)).FirstOrDefault();
+
+                var group = GroupManagementService.GetGroup(groupId);
+                var model = new List<StudentMarkForDateViewData>();
+                foreach (var student in group.Students.Where(x => x.Confirmed.HasValue && x.Confirmed.Value).OrderBy(e => e.FullName))
+                {
+                    if (student.LecturesVisitMarks.Any(e => e.LecturesScheduleVisitingId == visitingDate.Id))
+                    { 
+	                    model.Add(new StudentMarkForDateViewData
+						{
+							MarkId = student.LecturesVisitMarks.FirstOrDefault(e => e.LecturesScheduleVisitingId == visitingDate.Id).Id,
+							StudentId = student.Id,
+							Login = student.User.UserName,
+							StudentName = student.FullName,
+							Mark = student.LecturesVisitMarks.FirstOrDefault(e => e.LecturesScheduleVisitingId == visitingDate.Id).Mark
+						});
+                    }
+                    else
+                    {
+                        model.Add(new StudentMarkForDateViewData
+                        {
+                            MarkId = 0,
+                            StudentId = student.Id,
+                            StudentName = student.FullName,
+							Login = student.User.UserName,
+                            Mark = string.Empty
+                        });
+                    }
+                }
+
+                return new StudentMarkForDateResult
+                {
+                    DateId = dateId,
+                    Date = visitingDate.Date.ToString("dd.MM.yyyy"),
+                    StudentMarkForDate = model,
+                    Message = "text.calendarData.get.response.success",
+                    Code = "200"
+                };
+            }
+            catch
+            {
+                return new StudentMarkForDateResult
+                {
+                    Message = "text.calendarData.get.response.failure.unknown",
+                    Code = "500"
+                };
+            }
+        }
+
+        public ResultViewData SaveMarksCalendarData(List<LecturesMarkVisitingViewData> lecturesMarks)
+        {
+            try
+            {
+                foreach (var student in lecturesMarks)
+                {
+                    SubjectManagementService.SaveMarksCalendarData(student.Marks
+					.Select(e => 
+						new LecturesVisitMark
+						{
+							Id = e.MarkId,
+							Mark = e.Mark,
+							LecturesScheduleVisitingId = e.LecturesVisitId,
+							StudentId = student.StudentId,
+                            Comment = e.Comment,
+                            ShowForStudent = e.ShowForStudent
+						}).ToList());
+                }
+                return new ResultViewData
+                {
+                    Message = "text.calendarData.add.response.success",
+                    Code = "200"
+                };
+            }
+            catch
+            {
+                return new ResultViewData
+                {
+                    Message = "text.calendarData.add.response.failure.unknown",
+                    Code = "500"
+                };
+            }
+        }
+
+		public ResultViewData SaveMarksCalendarDataSingle(int markId, string mark, int lecturesVisitId, int studentId, string comment, bool showForStudent)
+		{
+			try
+			{
+				SubjectManagementService.SaveMarksCalendarData(new List<LecturesVisitMark> 
+				{
+					new LecturesVisitMark
+					{
+						Id = markId,
+						Mark = mark,
+						LecturesScheduleVisitingId = lecturesVisitId,
+						StudentId = studentId,
+                        Comment = comment,
+                        ShowForStudent = showForStudent
+					}
+				});
+
+				return new ResultViewData
+				{
+					Message = "text.calendarData.add.response.success",
+					Code = "200"
+				};
+			}
+			catch
+			{
+				return new ResultViewData
+				{
+					Message = "text.calendarData.add.response.failure.unknown",
+					Code = "500"
+				};
+			}
+		}
+
+		public ResultViewData DeleteVisitingDates(List<int> dateIds)
+		{
+			try
+			{
+				dateIds.ForEach(e => SubjectManagementService.DeleteLectionVisitingDate(e));
+
+				return new ResultViewData
+				{
+					Message = "text.dates.delete.response.success",
+					Code = "200"
+				};
+			}
+			catch
+			{
+				return new ResultViewData
+				{
+					Message = "text.dates.delete.response.failure.unknown",
+					Code = "500"
+				};
+			}
+		}
+
+        public LecturesMarkVisitingResult GetLecturesMarkVisitingV2(int subjectId, int groupId)
+        {
+            try
+            {
+                var groups = GroupManagementService.GetGroup(groupId);
+
+                var lecturesVisitingData = SubjectManagementService.GetScheduleVisitings(new Query<LecturesScheduleVisiting>(e => e.SubjectId == subjectId)).OrderBy(e => e.Date);
+
+                var lecturesVisiting = new List<LecturesMarkVisitingViewData>();
+                var students = groups.Students.Where(x => x.Confirmed.HasValue && x.Confirmed.Value).OrderBy(e => e.FullName);
+                foreach (var student in students)
+                {
+                    var data = new List<MarkViewData>();
+
+                    foreach (var lecturesScheduleVisiting in lecturesVisitingData)
+                    {
+                        var lecturesVisitMark = student.LecturesVisitMarks.FirstOrDefault(e => e.LecturesScheduleVisitingId == lecturesScheduleVisiting.Id);
+
+                        if (lecturesVisitMark != null)
+                        {
+                            data.Add(new MarkViewData
+                            {
+                                Date = lecturesScheduleVisiting.Date.ToString("dd.MM.yyyy"),
+                                LecturesVisitId = lecturesScheduleVisiting.Id,
+                                Mark = lecturesVisitMark.Mark,
+                                MarkId = lecturesVisitMark.Id,
+                                Comment = lecturesVisitMark.Comment,
+                                ShowForStudent = lecturesVisitMark.ShowForStudent
+                            });
+                        }
+                        else
+                        {
+                            data.Add(new MarkViewData
+                            {
+                                Date = lecturesScheduleVisiting.Date.ToString("dd.MM.yyyy"),
+                                LecturesVisitId = lecturesScheduleVisiting.Id,
+                                Mark = string.Empty,
+                                MarkId = 0
+                            });
+                        }
+                    }
+
+                    lecturesVisiting.Add(new LecturesMarkVisitingViewData
+                    {
+                        StudentId = student.Id,
+                        StudentName = student.FullName,
+                        Login = student.User.UserName,
+                        Marks = data
+                    });
+                }
+
+                var dataResulet = new List<LecturesGroupsVisitingViewData>
+                {
+                    new LecturesGroupsVisitingViewData
+                    {
+                        GroupId = groupId,
+                        LecturesMarksVisiting = lecturesVisiting
+                    }
+                };
+
+                return new LecturesMarkVisitingResult
+                {
+                    GroupsVisiting = dataResulet,
+                    Message = "",
+                    Code = "200"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new LecturesMarkVisitingResult()
+                {
+                    Message = ex.Message + "\n" + ex.StackTrace,
+                    Code = "500"
+                };
+            }
+        }
+
+        public LecturesMarkVisitingResult GetLecturesMarkVisitingV3(int subjectId, int groupId)
+        {
+            try
+            {
+                var groups = GroupManagementService.GetGroup(new Query<Group>(x => x.Id == groupId)
+                    .Include(x => x.Students.Select(s => s.LecturesVisitMarks)));
+
+                var lecturesVisitingData = SubjectManagementService.GetScheduleVisitings(new Query<LecturesScheduleVisiting>(e => e.SubjectId == subjectId)).OrderBy(e => e.Date);
+
+                var lecturesVisiting = new List<LecturesMarkVisitingViewData>();
+                var students = groups.Students.Where(x => x.Confirmed.HasValue && x.Confirmed.Value && x.Confirmed == true && x.IsActive != false).OrderBy(e => e.FullName);
+                foreach (var student in students)
+                {
+                    var data = new List<MarkViewData>();
+
+                    foreach (var lecturesScheduleVisiting in lecturesVisitingData)
+                    {
+                        var lecturesVisitMark = student.LecturesVisitMarks.FirstOrDefault(e => e.LecturesScheduleVisitingId == lecturesScheduleVisiting.Id);
+
+                        if (lecturesVisitMark != null)
+                        {
+                            data.Add(new MarkViewData
+                            {
+                                Date = lecturesScheduleVisiting.Date.ToString("dd.MM.yyyy"),
+                                LecturesVisitId = lecturesScheduleVisiting.Id,
+                                Mark = lecturesVisitMark.Mark,
+                                MarkId = lecturesVisitMark.Id,
+                                Comment = lecturesVisitMark.Comment,
+                                ShowForStudent = lecturesVisitMark.ShowForStudent,
+                            });
+                        }
+                        else
+                        {
+                            data.Add(new MarkViewData
+                            {
+                                Date = lecturesScheduleVisiting.Date.ToString("dd.MM.yyyy"),
+                                LecturesVisitId = lecturesScheduleVisiting.Id,
+                                Mark = string.Empty,
+                                MarkId = 0
+                            });
+                        }
+                    }
+
+                    lecturesVisiting.Add(new LecturesMarkVisitingViewData
+                    {
+                        StudentId = student.Id,
+                        StudentName = student.FullName,
+                        Marks = data
+                    });
+                }
+
+                var dataResulet = new List<LecturesGroupsVisitingViewData>
+                {
+                    new LecturesGroupsVisitingViewData
+                    {
+                        GroupId = groupId,
+                        LecturesMarksVisiting = lecturesVisiting
+                    }
+                };
+
+                return new LecturesMarkVisitingResult
+                {
+                    GroupsVisiting = dataResulet,
+                    Message = "",
+                    Code = "200"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new LecturesMarkVisitingResult()
+                {
+                    Message = ex.Message + "\n" + ex.StackTrace,
+                    Code = "500"
+                };
+            }
+        }
+    }
+}

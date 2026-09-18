@@ -1,0 +1,102 @@
+<ng-container *ngIf="tests?.length && !loading">
+  <div class="result-test-table-pupil-table-scroll">
+  <mat-table [dataSource]="tests" class="mat-elevation-z8 table-test-bg">
+    <!-- Position Column -->
+    <ng-container matColumnDef="Id">
+      <mat-header-cell *matHeaderCellDef class="mat-header-cell-id">
+        №
+      </mat-header-cell>
+      <mat-cell *matCellDef="let element; let i = index" class="mat-header-cell-id">
+        {{ i + 1 }}
+      </mat-cell>
+    </ng-container>
+
+    <!-- Name Column -->
+    <ng-container matColumnDef="Title">
+      <mat-header-cell *matHeaderCellDef class="mat-header-cell-description">
+        {{ 'text.test.name' | translate: 'Название теста' }}
+      </mat-header-cell>
+      <mat-cell *matCellDef="let element" class="mat-header-cell-description">
+        {{ element.Title }}
+      </mat-cell>
+    </ng-container>
+
+    <!-- Date Column -->
+    <ng-container matColumnDef="passDate">
+      <mat-header-cell *matHeaderCellDef class="mat-header-cell-date">
+        {{ 'text.test.date.completing.header' | translate: 'Дата прохождения теста' }}
+      </mat-header-cell>
+      <mat-cell *matCellDef="let element" class="mat-header-cell-date">
+        {{ getPassDate(element) }}
+      </mat-cell>
+    </ng-container>
+
+    <!-- Start Time Column -->
+    <ng-container matColumnDef="startTime">
+      <mat-header-cell *matHeaderCellDef class="mat-header-cell-time">
+        {{ 'text.test.time.start.header' | translate: 'Время начала теста' }}
+      </mat-header-cell>
+      <mat-cell *matCellDef="let element" class="mat-header-cell-time">
+        {{ getStartTime(element) }}
+      </mat-cell>
+    </ng-container>
+
+    <!-- End Time Column -->
+    <ng-container matColumnDef="endTime">
+      <mat-header-cell *matHeaderCellDef class="mat-header-cell-end-time">
+        {{ 'text.test.time.end.header' | translate: 'Время окончания теста' }}
+      </mat-header-cell>
+      <mat-cell *matCellDef="let element" class="mat-header-cell-end-time">
+        {{ getEndTime(element) }}
+      </mat-cell>
+    </ng-container>
+
+    <!-- Score Column -->
+    <ng-container matColumnDef="action">
+      <mat-header-cell *matHeaderCellDef class="mat-header-cell-action">
+        {{ 'text.test.mark' | translate: 'Оценка' }}
+      </mat-header-cell>
+      <mat-cell *matCellDef="let element" class="mat-header-cell-action">
+        {{
+          (element.Points ? element.Points : 0) +
+            ' (' +
+            (element.Percent ? element.Percent : 0) +
+            '%)'
+        }}
+      </mat-cell>
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+    <mat-row *matRowDef="let row; columns: displayedColumns"></mat-row>
+  </mat-table>
+  </div>
+
+  <div class="result-test-table-chart">
+    <div class="result-test-table-chart-scroll">
+    <div class="result-test-table-chart-canvas-host">
+    <canvas baseChart
+            [datasets]="barChartData"
+            [labels]="barChartLabels"
+            [options]="barChartOptions"
+            [plugins]="barChartPlugins"
+            [colors]="barChartColors"
+            [legend]="barChartLegend"
+            [chartType]="barChartType">
+    </canvas>
+    </div>
+    </div>
+  </div>
+</ng-container>
+
+<ng-template *ngIf="loading">
+  <mat-card>
+    <mat-card-content>
+      <section class="example-section">
+        <mat-progress-bar class="example-margin"
+                          [color]="'primary'"
+                          [mode]="'indeterminate'">
+        </mat-progress-bar>
+      </section>
+    </mat-card-content>
+  </mat-card>
+</ng-template>

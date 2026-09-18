@@ -1,0 +1,173 @@
+<div mat-dialog-actions *ngIf="!needToGetInitialTest && !isTest">
+  <button
+    *ngIf="zoomInButtonVisible && isLibreOfficeMode"
+    mat-raised-button
+    mat-button
+    class="color-button"
+    (click)="zoomIn()"
+  >
+    <mat-icon>zoom_in</mat-icon>
+    {{ 'common.zoomIn' | translate: 'Увеличить' }}
+  </button>
+  <button
+    *ngIf="zoomOutButtonVisible && isLibreOfficeMode"
+    mat-raised-button
+    mat-button
+    class="color-button"
+    (click)="zoomOut()"
+  >
+    <mat-icon>zoom_out</mat-icon>
+    {{ 'common.zoomOut' | translate: 'Уменьшить' }}
+  </button>
+  <button
+    *ngIf="prevButtonVisible"
+    mat-raised-button
+    mat-button
+    class="color-button"
+    (click)="goToPrevMaterial()"
+  >
+    <mat-icon>fast_rewind</mat-icon>
+    {{ 'common.prevTopic' | translate: 'Предыдущая тема' }}
+  </button>
+  <button
+    *ngIf="nextButtonVisible"
+    mat-raised-button
+    mat-button
+    class="color-button"
+    (click)="goToNextMaterial()"
+  >
+    {{ 'common.nextTopic' | translate: 'Следующая тема' }}
+    <mat-icon>fast_forward</mat-icon>
+  </button>
+  <button
+    *ngIf="toTestButtonVisible"
+    mat-raised-button
+    mat-button
+    class="color-button"
+    [disabled]="!toTestButtonEnabled"
+    (click)="goToTests()"
+  >
+    {{ 'complex.toTests' | translate: 'К тестам' }}
+  </button>
+  <div class="cancel-button">
+    <button mat-icon-button (click)="onNoClick()">
+      <mat-icon>clear</mat-icon>
+    </button>
+  </div>
+</div>
+
+<div
+  mat-dialog-actions
+  *ngIf="!needToGetInitialTest && isTest && endTestButtonVisible && !isPredTest"
+  class="adaptive-test-actions"
+>
+  <button
+    id="continueButton"
+    mat-raised-button
+    mat-button
+    class="color-button"
+    [disabled]="!monitoringPhaseComplete"
+    (click)="processsTest()"
+  >
+    {{
+      isPredTest
+        ? ('complex.goToLearning' | translate: 'Перейти к обучению')
+        : ('common.finishTest' | translate: 'Завершить тест')
+    }}
+  </button>
+</div>
+
+<div mat-dialog-content class="lab-work-component__popover" #popoverContent>
+  <div *ngIf="needToGetInitialTest" class="need-pred-test">
+    <div class="predtest-description-title-text">
+      <p>
+        {{
+          'complex.firstTime'
+            | translate
+              : 'Вы впервые работаете с адаптивным обучением на этом предмете'
+        }}!
+      </p>
+      <button mat-icon-button (click)="onNoClick()">
+        <mat-icon>clear</mat-icon>
+      </button>
+    </div>
+    <div class="pretest-description-text">
+      <p>
+        {{
+          'complex.forStart'
+            | translate
+              : 'Для старта процесса обучения пожалуйста пройдите предтест'
+        }}
+      </p>
+    </div>
+    <div class="predtest-description-button">
+      <button
+        *ngIf="needToGetInitialTest"
+        mat-raised-button
+        mat-button
+        class="pred-raised-button"
+        (click)="goToPredTest()"
+      >
+        {{ 'common.pretest' | translate: 'Пройти предтест' }}
+      </button>
+    </div>
+  </div>
+
+  <span *ngIf="showTimer"
+    >{{
+      'complex.availableTests'
+        | translate: 'Переход к тестам будет доступен через'
+    }}
+    {{ time }}</span
+  >
+  <!-- LibreOffice_Mode -->
+  <pdf-viewer
+    #pdfViewer
+    *ngIf="showMaterial && isLibreOfficeMode"
+    (mousemove)="onDrag($event, pdfViewer)"
+    (mousedown)="onDragStarted($event)"
+    (mouseup)="onDragEnded($event, 'up')"
+    (mouseleave)="onDragEnded($event, 'leave')"
+    [src]="path"
+    [render-text]="true"
+    [original-size]="false"
+    [fit-to-page]="false"
+    [autoresize]="true"
+    [(page)]="page"
+    [show-all]="true"
+    [zoom]="zoom"
+    style="display: block"
+    [zoom-scale]="page - width"
+    style="width: 100%; height: 100vh"
+  ></pdf-viewer>
+
+  <!-- GoogleDocs_Mode -->
+  <ng-container *ngIf="showMaterial && !isLibreOfficeMode">
+    <div class="google-docs-wrapper">
+      <div *ngIf="isGoogleDocsLoading" class="google-docs-loading">
+        <span>{{ 'complex.loadingDocument' | translate: 'Загрузка документа...' }}</span>
+      </div>
+      <iframe
+        [src]="googleDocsUrl | safeUrl"
+        frameborder="0"
+        (load)="isGoogleDocsLoading = false"
+      ></iframe>
+    </div>
+  </ng-container>
+
+  <div *ngIf="isTest">
+    <app-test-execution
+      [testId]="testId"
+      [isPredTest]="isPredTest"
+      (monitoringPhaseCompleted)="onMonitoringPhaseComplete()"
+      (predTestFlowContinue)="onAdaptiveFlowContinue()"
+    ></app-test-execution>
+  </div>
+
+  <div *ngIf="isEndLearning">
+    <p>
+      {{ 'complex.finishProcess' | translate: 'Процесс обучения завершён' }}
+    </p>
+    <p>{{ 'complex.exit' | translate: 'Для выхода нажмите Отмена' }}...</p>
+  </div>
+</div>

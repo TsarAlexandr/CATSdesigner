@@ -1,0 +1,11 @@
+@import '../angular-editor/style';
+
+.select-button {
+  display: inline-block;
+  padding: auto;
+  &.disabled {
+    cursor: pointer;
+    background-color: #f1f1f1;
+    transition: 0.2s ease;
+  }
+}

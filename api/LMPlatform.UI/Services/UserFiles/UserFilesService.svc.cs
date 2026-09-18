@@ -1,0 +1,540 @@
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Configuration;
+using System.IO;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.ServiceModel;
+using System.Text;
+using System.Web;
+using Application.Core;
+using Application.Core.Data;
+using Application.Infrastructure.FilesManagement;
+using Application.Infrastructure.LabsManagement;
+using Application.Infrastructure.PracticalManagement;
+using Application.Infrastructure.StudentManagement;
+using Application.Infrastructure.SubjectManagement;
+using LMPlatform.Models;
+using LMPlatform.PlagiarismNet.Controllers;
+using LMPlatform.UI.Services.Modules;
+using LMPlatform.UI.Services.Modules.Labs;
+using Newtonsoft.Json;
+
+namespace LMPlatform.UI.Services.UserFiles
+{
+    // NOTE: You can use the "Rename" command on the "Refactor" menu to change the class name "UserFilesService" in code, svc and config file together.
+    // NOTE: In order to launch WCF Test Client for testing this service, please select UserFilesService.svc or UserFilesService.svc.cs at the Solution Explorer and start debugging.
+    public class UserFilesService : IUserFilesService
+    {
+        public string PlagiarismTempPath => ConfigurationManager.AppSettings["PlagiarismTempPath"];
+
+        public string FileUploadPath => ConfigurationManager.AppSettings["FileUploadPath"];
+
+
+        private readonly LazyDependency<ISubjectManagementService> subjectManagementService = new LazyDependency<ISubjectManagementService>();
+
+        public ISubjectManagementService SubjectManagementService => subjectManagementService.Value;
+
+        private readonly LazyDependency<IFilesManagementService> filesManagementService = new LazyDependency<IFilesManagementService>();
+
+        public IFilesManagementService FilesManagementService => filesManagementService.Value;
+
+
+        private readonly LazyDependency<IStudentManagementService> studentManagementService = new LazyDependency<IStudentManagementService>();
+
+        public IStudentManagementService StudentManagementService => studentManagementService.Value;
+
+
+        private readonly LazyDependency<ILabsManagementService> labsManagementService = new LazyDependency<ILabsManagementService>();
+
+        public ILabsManagementService LabsManagementService => labsManagementService.Value;
+
+        private readonly LazyDependency<IPracticalManagementService> practicalManagementService = new LazyDependency<IPracticalManagementService>();
+
+        public IPracticalManagementService PracticalManagementService => practicalManagementService.Value;
+
+        public UserLabFileViewData SendFile(int subjectId, int userId, int id, string comments, string pathFile, string attachments, bool isCp = false, bool isRet = false, int? labId = null, int? practicalId = null)
+        {
+            try
+            {
+                var attachmentsModel = JsonConvert.DeserializeObject<List<Attachment>>(attachments)?.ToList() ?? new List<Attachment>();
+
+                string finalPath = pathFile;
+
+                if (isRet)
+                {
+                    finalPath = $"P{Guid.NewGuid().ToString("N").ToUpper()}";
+                }
+
+                var userLabFile = SubjectManagementService.SaveUserLabFiles(new UserLabFiles
+                {
+                    SubjectId = subjectId,
+                    Date = DateTime.Now,
+                    UserId = userId,
+                    Comments = comments,
+                    Attachments = finalPath,
+                    Id = isRet ? 0 : id,
+                    LabId = labId,
+                    PracticalId = practicalId,
+                    IsCoursProject = isCp,
+                    IsReceived = false,
+                    IsReturned = isRet
+                }, attachmentsModel);
+
+                if (isRet && id > 0)
+                {
+                    SubjectManagementService.UpdateUserFile(id, isReturned: true);
+                }
+
+                return new UserLabFileViewData()
+                {
+                    Message = "Файл(ы) успешно отправлен(ы)",
+                    Code = "200",
+                    Comments = userLabFile.Comments,
+                    Id = userLabFile.Id,
+                    PathFile = userLabFile.Attachments,
+                    IsReceived = userLabFile.IsReceived,
+                    IsReturned = userLabFile.IsReturned,
+                    IsCoursProject = userLabFile.IsCoursProject,
+                    LabId = userLabFile.LabId,
+                    LabShortName = userLabFile.Lab?.ShortName,
+                    LabTheme = userLabFile.Lab?.Theme,
+                    Date = userLabFile.Date != null ? userLabFile.Date.Value.ToString("dd.MM.yyyy HH:mm") : string.Empty,
+                    Attachments = FilesManagementService.GetAttachments(userLabFile.Attachments).ToList(),
+                    UserId = userLabFile.UserId,
+                    Order = (labId != null) ? userLabFile.Lab?.Order : userLabFile.Practical?.Order,
+                    PracticalId = practicalId,
+                    PracticalTheme = userLabFile.Practical?.Theme,
+                    PracticalShortName = userLabFile.Practical?.ShortName,
+                };
+            }
+            catch (Exception ex)
+            {
+                return new UserLabFileViewData
+                {
+                    Message = $"Произошла ошибка: {ex.Message}",
+                    Code = "500"
+                };
+            }
+        }
+        public ResultViewData DeleteUserFile(int id)
+        {
+            try
+            {
+                SubjectManagementService.DeleteUserLabFile(id);
+                return new ResultViewData
+                {
+                    Message = "Работа удалена",
+                    Code = "200"
+                };
+            }
+            catch (Exception e)
+            {
+                return new ResultViewData
+                {
+                    Message = "Произошла ошибка при удалении работы - " + e.Message,
+                    Code = "500"
+                };
+            }
+        }
+
+        public ResultViewData ReceivedFile(int userFileId)
+        {
+            try
+            {
+                this.SubjectManagementService.UpdateUserFile(userFileId, true);
+                return new ResultViewData
+                {
+                    Message = "Файл(ы) перемещен(ы) в архив",
+                    Code = "200"
+                };
+            }
+            catch
+            {
+                return new ResultViewData
+                {
+                    Message = "Произошла ошибка переноса файла в архив",
+                    Code = "500"
+                };
+            }
+        }
+
+        public ResultViewData ReturnFile(int userFileId)
+        {
+            try
+            {
+                SubjectManagementService.UpdateUserFile(userFileId, isReturned: true);
+                return new ResultViewData
+                {
+                    Message = "Файл отправлен на доработку",
+                    Code = "200"
+                };
+            }
+            catch
+            {
+                return new ResultViewData
+                {
+                    Code = "500",
+                    Message = "Не удалось отправить файл на доработку"
+                };
+            }
+        }
+
+        public ResultViewData CancelReceivedFile(int userFileId)
+        {
+            try
+            {
+                SubjectManagementService.UpdateUserFile(userFileId);
+                return new ResultViewData
+                {
+                    Message = "Файл(ы) перемещен(ы) из архива",
+                    Code = "200"
+                };
+            }
+            catch
+            {
+                return new ResultViewData
+                {
+                    Message = "Произошла ошибка переноса файла из архива",
+                    Code = "500"
+                };
+            }
+        }
+
+        public ResultPSubjectViewData CheckPlagiarismSubjects(string subjectId, int type, int threshold, bool isCp = false, bool isLab = false, bool isPractical = false)
+        {
+            var path = Guid.NewGuid().ToString("N");
+
+            try
+            {
+                ClearCache();
+
+                var subjectName = this.SubjectManagementService.GetSubject(int.Parse(subjectId)).ShortName;
+                var Name = this.SubjectManagementService.GetSubject(int.Parse(subjectId)).Name;
+
+                Directory.CreateDirectory(this.PlagiarismTempPath + path);
+
+                var usersFiles = this.SubjectManagementService.GetUserFiles(0, int.Parse(subjectId))
+                    .Where(e => e.IsReceived &&
+                        (e.IsCoursProject == isCp ||
+                        (isLab && (e.LabId.HasValue || (!e.LabId.HasValue && !e.PracticalId.HasValue))) ||
+                        (isPractical && e.PracticalId.HasValue))
+                    );
+
+                var filesPaths = usersFiles.Select(e => e.Attachments);
+
+                var key = 0;
+
+                if (!filesPaths.Any())
+                {
+                    return new ResultPSubjectViewData
+                    {
+                        Message = "Отсутствуют принятые работы для проверки на плагиат",
+                        Code = "500"
+                    };
+                }
+
+                foreach (var filesPath in filesPaths)
+                {
+                    if (Directory.Exists(this.FileUploadPath + filesPath))
+                    {
+                        foreach (var srcPath in Directory.GetFiles(this.FileUploadPath + filesPath))
+                        {
+                            File.Copy(
+                                srcPath,
+                                srcPath.Replace(this.FileUploadPath + filesPath, this.PlagiarismTempPath + path),
+                                true
+                            );
+                        }
+                    }
+                    key += filesPath.GetHashCode();
+                }
+
+                var plagiarismController = new PlagiarismController();
+                var result = plagiarismController.CheckByDirectory(new[] { PlagiarismTempPath + path }.ToList(), threshold, 10, type);
+
+                var data = new ResultPlagSubjectClu
+                {
+                    clusters = new ResultPlagSubject[result.Count]
+                };
+
+                for (int i = 0; i < result.Count; ++i)
+                {
+                    data.clusters[i] = new ResultPlagSubject();
+
+                    var correctDocs = new List<ResultPlag>();
+
+                    foreach (var doc in result[i].Docs)
+                    {
+                        try
+                        {
+                            var resultS = new ResultPlag();
+
+                            var fileName = Path.GetFileName(doc);
+                            var fileNameWithoutExt = Path.GetFileNameWithoutExtension(doc);
+
+                            resultS.DocFileName = fileName;
+                            resultS.Name = Name;
+
+                            var name = this.FilesManagementService.GetFileDisplayName(fileName);
+                            resultS.subjectName = subjectName;
+                            resultS.doc = name;
+
+                            var pathName = this.FilesManagementService.GetPathName(fileName);
+                            resultS.DocPathName = pathName;
+
+                            var userFileT = this.SubjectManagementService.GetUserLabFile(pathName);
+                            var userId = userFileT.UserId;
+                            var user = this.StudentManagementService.GetStudent(userId);
+
+                            resultS.author = user.FullName;
+                            resultS.groupName = user.Group.Name;
+
+                            var attachment = new Attachment
+                            {
+                                PathName = pathName,
+                                FileName = fileName
+                            };
+                            var fileSizeBytes = this.FilesManagementService.GetFileSize(attachment) ?? 0;
+                            resultS.sizeFile = fileSizeBytes > 0 ? $"{Math.Round(fileSizeBytes / 1024.0, 2)} КБ" : string.Empty;
+
+                            var labFiles = this.LabsManagementService.GetUserLabFiles(userId, int.Parse(subjectId));
+                            var matchedLab = labFiles.FirstOrDefault(x => x.Attachments != null && pathName.Contains(x.Attachments));
+
+                            var labFilesPr = this.PracticalManagementService.GetUserPracticalFiles(userId, int.Parse(subjectId));
+                            var matchedLabPr = labFilesPr.FirstOrDefault(x => x.Attachments != null && pathName.Contains(x.Attachments));
+
+                            resultS.Theme = matchedLab?.Lab?.Theme ?? matchedLabPr?.Practical?.Theme ?? " ";
+                            resultS.shortName = matchedLab?.Lab?.ShortName ?? matchedLabPr?.Practical?.ShortName ?? " ";
+                            correctDocs.Add(resultS);
+                        }
+                        catch (Exception ex)
+                        {
+                            continue;
+                        }
+                    }
+
+                    data.clusters[i].correctDocs = correctDocs
+                        .OrderBy(x => x.groupName)
+                        .ThenBy(x => x.author)
+                        .ToList();
+                }
+
+                Directory.Delete(this.PlagiarismTempPath + path, true);
+
+                HttpContext.Current.Session.Add(key.ToString(), data.clusters.ToList());
+
+                return new ResultPSubjectViewData
+                {
+                    DataD = data.clusters.ToList(),
+                    Message = "Проверка успешно завершена",
+                    Code = "200"
+                };
+            }
+            catch (Exception e)
+            {
+                return new ResultPSubjectViewData
+                {
+                    Message = e.Message + "   " + e,
+                    Code = "500"
+                };
+            }
+            finally
+            {
+                var fullPath = this.PlagiarismTempPath + path;
+                if (Directory.Exists(fullPath))
+                {
+                    Directory.Delete(fullPath, true);
+                }
+            }
+        }
+        public ResultViewData CheckPlagiarism(int userFileId, int subjectId, bool isCp = false, bool isLab = false, bool isPractical = false)
+        {
+            var path = Guid.NewGuid().ToString("N");
+            try
+            {
+                ClearCache();
+                var subject = this.SubjectManagementService.GetSubject(subjectId);
+                var subjectName = subject?.ShortName ?? " ";
+                var subjectFullName = subject?.Name ?? " ";
+
+                Directory.CreateDirectory(this.PlagiarismTempPath + path);
+
+                var userFile = this.SubjectManagementService.GetUserLabFile(userFileId);
+                if (userFile == null)
+                {
+                    return new ResultViewData
+                    {
+                        Code = "200",
+                        DataD = null,
+                        Message = "Файл для проверки не найден"
+                    };
+                }
+
+                List<UserLabFiles> allFiles;
+                if (isCp)
+                    allFiles = this.SubjectManagementService.GetCourseProjectFiles(0, subjectId);
+                else
+                    allFiles = this.SubjectManagementService.GetUserLabFiles(0, subjectId)
+                        .Where(f => f.IsReceived && ((isLab && f.LabId.HasValue) || (isPractical && f.PracticalId.HasValue)))
+                        .ToList();
+
+                allFiles = allFiles.Where(f => f.Id != userFileId).ToList();
+                if (!allFiles.Any())
+                {
+                    return new ResultViewData
+                    {
+                        Code = "200",
+                        DataD = null,
+                        Message = "Отсутствуют принятые работы для проверки на плагиат"
+                    };
+                }
+                foreach (var file in allFiles)
+                {
+                    var fullPath = Path.Combine(this.FileUploadPath, file.Attachments ?? string.Empty);
+                    if (!Directory.Exists(fullPath))
+                        continue;
+
+                    foreach (var srcPath in Directory.GetFiles(fullPath))
+                    {
+                        var destPath = srcPath.Replace(this.FileUploadPath + file.Attachments, this.PlagiarismTempPath + path);
+                        var destDir = Path.GetDirectoryName(destPath);
+                        if (!Directory.Exists(destDir))
+                            Directory.CreateDirectory(destDir);
+                        File.Copy(srcPath, destPath, true);
+                    }
+                }
+                string firstFilePath = Directory.GetFiles(Path.Combine(this.FileUploadPath, userFile.Attachments))
+                    .FirstOrDefault();
+                if (firstFilePath == null)
+                {
+                    return new ResultViewData
+                    {
+                        Code = "200",
+                        DataD = null,
+                        Message = "Файл для проверки отсутствует на сервере"
+                    };
+                }
+                var plagiarismController = new PlagiarismController();
+                var result = plagiarismController.CheckBySingleDoc(firstFilePath, new[] { PlagiarismTempPath + path }.ToList(), 10, 10);
+
+                var data = new List<ResultPlag>();
+                foreach (var res in result)
+                {
+                    var fileName = Path.GetFileName(res.Doc);
+                    var pathName = FilesManagementService.GetPathName(fileName);
+                    var userFileT = SubjectManagementService.GetUserLabFile(pathName);
+                    var user = StudentManagementService.GetStudent(userFileT.UserId);
+
+                    string theme = null;
+                    string shortName = null;
+
+                    if (isCp && userFileT.IsCoursProject)
+                    {
+                        theme = " ";
+                        shortName = " ";
+                    }
+                    else if (isLab && userFileT.LabId.HasValue)
+                    {
+                        var labFile = LabsManagementService.GetUserLabFiles(userFileT.UserId, subjectId)
+                            .FirstOrDefault(l => l.Attachments != null && pathName.Contains(l.Attachments));
+                        theme = labFile?.Lab?.Theme ?? " ";
+                        shortName = labFile?.Lab?.ShortName ?? " ";
+                    }
+                    else if (isPractical && userFileT.PracticalId.HasValue)
+                    {
+                        var practicalFile = PracticalManagementService.GetUserPracticalFiles(userFileT.UserId, subjectId)
+                            .FirstOrDefault(p => p.Attachments != null && pathName.Contains(p.Attachments));
+                        theme = practicalFile?.Practical?.Theme ?? " ";
+                        shortName = practicalFile?.Practical?.ShortName ?? " ";
+                    }
+                    var authorName = user?.FullName ?? " ";
+                    if (authorName != " ")
+                    {
+                        var fileSizeBytes = FilesManagementService.GetFileSize(
+                            new Attachment { FileName = fileName, PathName = pathName });
+
+                        string sizeFileText = string.Empty;
+                        if (fileSizeBytes.HasValue && fileSizeBytes.Value > 0)
+                        {
+                            sizeFileText = Math.Round(fileSizeBytes.Value / 1024.0, 2) + " КБ";
+                        }
+
+                        data.Add(new ResultPlag
+                        {
+                            DocFileName = fileName,
+                            DocPathName = pathName,
+                            doc = FilesManagementService.GetFileDisplayName(fileName),
+                            author = authorName,
+                            groupName = user?.Group?.Name ?? " ",
+                            coeff = res.Coeff.ToString(),
+                            subjectName = subjectName,
+                            Name = subjectFullName,
+                            sizeFile = sizeFileText,
+                            Theme = theme,
+                            shortName = shortName
+                        });
+                    }
+
+                }
+                return new ResultViewData
+                {
+                    Code = "200",
+                    DataD = data.OrderByDescending(x => int.Parse(x.coeff ?? "0")).ToList(),
+                    Message = "Проверка успешно завершена"
+                };
+            }
+            catch (Exception e)
+            {
+                return new ResultViewData
+                {
+                    Code = "500",
+                    DataD = null,
+                    Message = "Ошибка проверки на плагиат: " + e.Message
+                };
+            }
+            finally
+            {
+                var fullPath = PlagiarismTempPath + path;
+                if (Directory.Exists(fullPath))
+                    Directory.Delete(fullPath, true);
+            }
+        }
+
+        private static void ClearCache()
+        {
+            foreach (DictionaryEntry entry_loopVariable in HttpContext.Current.Cache)
+            {
+                var entry = entry_loopVariable;
+                HttpContext.Current.Cache.Remove(entry.Key.ToString());
+            }
+
+            IDictionaryEnumerator enumerator = HttpContext.Current.Cache.GetEnumerator();
+
+            while (enumerator.MoveNext())
+            {
+                HttpContext.Current.Cache.Remove(enumerator.Key.ToString());
+            }
+            HttpContext.Current.Response.ClearHeaders();
+            HttpContext.Current.Response.Expires = 0;
+            HttpContext.Current.Response.CacheControl = "no-cache";
+            HttpContext.Current.Response.Cache.SetCacheability(HttpCacheability.ServerAndNoCache);
+            HttpContext.Current.Response.Cache.SetNoStore();
+            HttpContext.Current.Response.Buffer = true;
+            HttpContext.Current.Response.ExpiresAbsolute = DateTime.Now.Subtract(new TimeSpan(1, 0, 0, 0));
+            HttpContext.Current.Response.AppendHeader("Pragma", "no-cache");
+            HttpContext.Current.Response.AppendHeader("", "");
+            HttpContext.Current.Response.AppendHeader("Cache-Control", "no-cache"); //HTTP 1.1
+            HttpContext.Current.Response.AppendHeader("Cache-Control", "private"); // HTTP 1.1
+            HttpContext.Current.Response.AppendHeader("Cache-Control", "no-store"); // HTTP 1.1
+            HttpContext.Current.Response.AppendHeader("Cache-Control", "must-revalidate"); // HTTP 1.1
+            HttpContext.Current.Response.AppendHeader("Cache-Control", "max-stale=0"); // HTTP 1.1
+            HttpContext.Current.Response.AppendHeader("Cache-Control", "post-check=0"); // HTTP 1.1
+            HttpContext.Current.Response.AppendHeader("Cache-Control", "pre-check=0"); // HTTP 1.1
+            HttpContext.Current.Response.AppendHeader("Pragma", "no-cache"); // HTTP 1.1
+            HttpContext.Current.Response.AppendHeader("Keep-Alive", "timeout=3, max=993"); // HTTP 1.1
+        }
+
+    }
+}

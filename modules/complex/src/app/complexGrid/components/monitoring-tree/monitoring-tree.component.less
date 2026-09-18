@@ -1,0 +1,178 @@
+.time-container {
+  position: relative;
+  display: inline-block;
+}
+
+.info {
+  font-family: 'Roboto', sans-serif;
+  color: #363636;
+
+  h2,
+  h3 {
+    margin: 0;
+  }
+}
+
+h2.info {
+  font-size: 24px;
+  font-weight: 400;
+}
+
+h3.info {
+  font-size: 1.2em;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+
+  span {
+    margin-right: 10px;
+  }
+}
+.mat-tree-node {
+  min-height: 0px !important;
+}
+
+.mat-tree-node,
+.mat-nested-tree-node {
+  padding-bottom: 4px;
+}
+
+.example-tree-invisible {
+  display: none;
+}
+
+.example-tree {
+  background: unset;
+  padding-top: 10px;
+}
+
+.example-tree ul,
+.example-tree li {
+  margin-top: 0;
+  margin-bottom: 0;
+  list-style-type: none;
+}
+
+.contents {
+  border-left: 1px dashed #ff3366;
+  margin: 0px 0px 0px 20px;
+  padding: 5px 0px 5px 15px;
+}
+
+.expandable {
+  padding-right: 15px;
+}
+
+.expandable-external {
+  padding-left: 15px;
+  color: gray;
+}
+
+.folder_file_icons {
+  cursor: default;
+  color: #7c7b7b;
+}
+
+.empty-tree-icon {
+  color: #a9a7a7;
+  opacity: 0.6;
+}
+
+a.clickable {
+  color: #000000;
+  cursor: pointer;
+}
+
+span.clickable {
+  color: #3f51b5;
+}
+
+.invisible {
+  display: none;
+}
+
+.icon {
+  font-size: 24px;
+  padding-left: 5px;
+}
+
+.no-file {
+  color: #808080;
+}
+
+.mat-icon-button {
+  padding-right: 45px;
+}
+
+.work-icons {
+  visibility: hidden;
+}
+
+.mat-tree-node:hover .work-icons {
+  visibility: visible;
+}
+
+.complex-three-title {
+  font-size: 18px;
+}
+
+.complex-three-title-button {
+  line-height: unset;
+  padding: unset;
+  width: unset;
+  height: unset;
+  margin-right: 10px;
+}
+
+.complex-three-title-prefix {
+  position: relative;
+  right: 3px;
+  display: inline-block;
+  font-size: 18px;
+  margin-left: 6px;
+  width: 10px;
+}
+
+.complex-three-title-icon {
+  padding: unset;
+  font-size: 28px;
+}
+
+.students-monitoring {
+  &-go-back {
+    cursor: pointer;
+    font-size: 20px;
+    color: #3f51b5;
+    font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+    text-decoration: none !important;
+  }
+
+  &-title {
+    width: 100%;
+    font-size: 26px;
+    text-align: center;
+    font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+    font-weight: normal;
+  }
+}
+
+.empty-folder-icon {
+  color: gray;
+  opacity: 0.6;
+}
+
+.folder-icon {
+  color: gray;
+}
+
+.test-result-container {
+  font-weight: normal;
+  margin-left: 5px;
+  cursor: help;
+}
+
+::ng-deep .test-tooltip {
+  white-space: normal;
+  max-width: 420px;
+  word-break: break-word;
+}

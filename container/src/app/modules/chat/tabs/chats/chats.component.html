@@ -1,0 +1,143 @@
+<!-- Start chats content -->
+<div style="display: flex; flex-direction: column; height: 100%">
+  <div
+    class="px-4"
+    style="
+      padding-right: 0.5rem !important;
+      padding-left: 0.5rem !important;
+      flex-shrink: 0;
+    "
+  >
+    <h4 class="mb-4">{{ 'chat.chats' | translate: 'Чаты' }}</h4>
+    <div class="search-box chat-search-box">
+      <div class="input-group input-group-lg">
+        <input
+          type="text"
+          [(ngModel)]="filterValue"
+          (ngModelChange)="filter()"
+          class="form-control"
+          placeholder="{{ 'chat.fio' | translate: 'ФИО' }}"
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- Start chat-message-list -->
+  <div
+    style="background: white; flex-grow: 1; min-height: 0; position: relative"
+  >
+    <perfect-scrollbar
+      style="position: absolute; top: 0; left: 0; right: 0; bottom: 0"
+      class="chat-message-list px-2"
+      #perfectScrollbar
+      [config]="{ suppressScrollX: false, suppressScrollY: false }"
+    >
+      <ul class="list-unstyled chat-list chat-user-list">
+        <ng-container
+          *ngIf="!isSearching || (isSearching && chats && chats.length > 0)"
+        >
+          <li *ngFor="let user of chats">
+            <a
+              [ngStyle]="{
+                'background-color':
+                  dataService.activChatId == user.id ? '#f5f7fb' : ''
+              }"
+              (click)="showChat(user)"
+            >
+              <div class="media" style="align-items: center">
+                <div
+                  class="chat-user-img align-self-center mr-3"
+                  [ngClass]="{ online: user.isOnline, away: !user.isOnline }"
+                >
+                  <img
+                    *ngIf="user.img"
+                    src="{{ user.img }}"
+                    class="rounded-circle avatar-xs"
+                    alt=""
+                  />
+                  <div class="avatar-xs" *ngIf="!user.img">
+                    <span class="avatar-title rounded-circle avatar-initials">
+                      {{
+                        user.name.split(' ')[0].charAt(0) +
+                          user.name.split(' ')[1].charAt(0)
+                      }}
+                    </span>
+                  </div>
+                  <span class="user-status"></span>
+                </div>
+                <div
+                  class="media-body overflow-hidden"
+                  [ngClass]="{ shortName: user.unread > 0 }"
+                >
+                  <h5 class="text-truncate font-size-15 mb-1">
+                    {{ user.name }}
+                  </h5>
+                </div>
+                <div class="unread-message" style="top: calc(50% - 16px)">
+                  <span
+                    *ngIf="user.unread"
+                    class="badge badge-soft-danger badge-pill"
+                    >{{ user.unread }}</span
+                  >
+                </div>
+              </div>
+            </a>
+          </li>
+        </ng-container>
+        <!-- Loading indicator -->
+        <li
+          *ngIf="
+            isSearching &&
+            contactService.loadingMore &&
+            ((contactService.isLecturer &&
+              (contactService.hasMoreLecturers ||
+                contactService.hasMoreSecondaryContacts)) ||
+              (!contactService.isLecturer &&
+                contactService.hasMoreSecondaryContacts))
+          "
+          class="text-center p-2"
+        >
+          <div class="spinner-border text-primary" role="status">
+            <span class="sr-only">{{
+              'chat.loading' | translate: 'Загрузка...'
+            }}</span>
+          </div>
+        </li>
+        <!-- End of results message -->
+        <li
+          *ngIf="
+            isSearching &&
+            !contactService.loadingMore &&
+            ((contactService.isLecturer &&
+              !contactService.hasMoreLecturers &&
+              !contactService.hasMoreSecondaryContacts) ||
+              (!contactService.isLecturer &&
+                !contactService.hasMoreSecondaryContacts)) &&
+            chats &&
+            chats.length > 0
+          "
+          class="text-center p-2"
+        >
+          <span class="text-muted">{{
+            'chat.noMoreResults' | translate: 'Больше результатов нет'
+          }}</span>
+        </li>
+        <!-- Empty results message -->
+        <li
+          *ngIf="
+            isSearching &&
+            !contactService.loadingMore &&
+            (!chats || chats.length === 0)
+          "
+          class="text-center p-2"
+        >
+          <span class="text-muted">{{
+            'chat.noResults' | translate: 'Нет результатов'
+          }}</span>
+        </li>
+      </ul>
+    </perfect-scrollbar>
+  </div>
+  <!-- End chat-message-list -->
+</div>
+<!-- Start chats content -->

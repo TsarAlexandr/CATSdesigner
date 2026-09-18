@@ -1,0 +1,167 @@
+<!-- Start Groups content -->
+<div style="display: flex; flex-direction: column; height: 100%">
+  <div class="p-4" style="flex-shrink: 0">
+    <h4 class="mb-3">
+      {{ 'chat.groupChats' | translate: 'Групповые чаты' }}
+    </h4>
+    <div class="d-flex justify-content-start mb-3">
+      <mat-slide-toggle
+        [checked]="dataService.showCompletedFilterState.getValue()"
+        (change)="onCompletedFilterChange($event.checked)"
+        color="primary"
+        class="mb-0"
+      >
+        <span *ngIf="!dataService.isLecturer">{{
+          'chat.completedSubjects' | translate: 'Завершенные предметы'
+        }}</span>
+        <span *ngIf="dataService.isLecturer">{{
+          'chat.detachedGroups' | translate: 'Открепленные группы'
+        }}</span>
+      </mat-slide-toggle>
+    </div>
+
+    <div class="search-box chat-search-box">
+      <div class="input-group input-group-lg">
+        <input
+          type="text"
+          [(ngModel)]="searchGroup"
+          (ngModelChange)="filter()"
+          class="form-control"
+          placeholder="{{
+            dataService.isLecturer
+              ? ('chat.groupName' | translate: 'Название группы')
+              : ('chat.subjectName' | translate: 'Название предмета')
+          }}"
+        />
+      </div>
+    </div>
+  </div>
+
+  <perfect-scrollbar
+    class="px-4 pt-0 chat-group-list"
+    style="flex-grow: 1; min-height: 0; position: relative"
+    data-simplebar
+  >
+    <ul class="list-unstyled chat-list" style="max-height: none">
+      <li *ngFor="let subject of groups">
+        <div class="chat">
+          <a
+            [attr.data-container]="
+              isSubjectChatEffectivelyAStub(subject) ? null : 'body'
+            "
+            [attr.data-placement]="
+              isSubjectChatEffectivelyAStub(subject) ? null : 'top'
+            "
+            [matTooltip]="
+              isSubjectChatEffectivelyAStub(subject)
+                ? ('chat.subjectCompletedTooltip'
+                  | translate: 'Предмет завершен')
+                : subject.name
+            "
+            [ngClass]="{
+              'chat-item-stub': isSubjectChatEffectivelyAStub(subject),
+              'active-chat-item':
+                !isSubjectChatEffectivelyAStub(subject) &&
+                dataService.activChatId == subject.id
+            }"
+            (click)="
+              !isSubjectChatEffectivelyAStub(subject) && showChat(subject)
+            "
+            [style.cursor]="
+              isSubjectChatEffectivelyAStub(subject) ? 'default' : 'pointer'
+            "
+          >
+            <div class="media" style="align-items: center">
+              <div
+                class="chat-user-img align-self-center mr-3"
+                style="margin-right: 0.5rem !important"
+              >
+                <div class="avatar-xs">
+                  <div
+                    class="avatar-title rounded-circle"
+                    [style.background-color]="subject.color"
+                  ></div>
+                </div>
+              </div>
+              <div class="media-body overflow-hidden">
+                <h5 class="text-truncate font-size-14 mb-0">
+                  <mat-icon
+                    *ngIf="
+                      (dataService.activeGroupCalls | async)?.has(subject.id)
+                    "
+                    class="align-middle subgroup-call-icon"
+                    >podcasts</mat-icon
+                  >
+                  {{ subject.shortName }} ({{ subject.name }})
+                  <span
+                    style="top: calc(50% - 16px)"
+                    *ngIf="
+                      !isSubjectChatEffectivelyAStub(subject) &&
+                      subject.unread != 0
+                    "
+                    class="badge badge-soft-danger badge-pill float-right"
+                    >{{ subject.unread }}</span
+                  >
+                </h5>
+              </div>
+            </div>
+          </a>
+          <div *ngFor="let group of subject.groups">
+            <a
+              [ngStyle]="{
+                'background-color':
+                  dataService.activChatId == group.id &&
+                  !group.isCompletedForUser
+                    ? '#f5f7fb'
+                    : ''
+              }"
+              [ngClass]="{ 'chat-item-readonly': group.isCompletedForUser }"
+              (click)="showChat(group)"
+              matTooltip="{{
+                group.isCompletedForUser
+                  ? ('chat.groupCompletedTooltip'
+                    | translate: 'Группа откреплена')
+                  : group.name
+              }}"
+            >
+              <div
+                style="padding-left: 2.5rem"
+                class="media align-items-center"
+              >
+                <div class="media-body overflow-hidden">
+                  <h5
+                    class="text-truncate font-size-14 mb-0 d-flex align-items-center"
+                  >
+                    <mat-icon
+                      *ngIf="
+                        (dataService.activeGroupCalls | async)?.has(group.id)
+                      "
+                      class="align-middle subgroup-call-icon"
+                    >
+                      podcasts
+                    </mat-icon>
+                    <span class="text-truncate">{{ group.name }}</span>
+                    <span
+                      style="margin-left: auto"
+                      *ngIf="!group.isCompletedForUser && group.unread > 0"
+                      class="badge badge-soft-danger badge-pill"
+                      >{{ group.unread }}</span
+                    >
+                  </h5>
+                </div>
+              </div>
+            </a>
+          </div>
+        </div>
+      </li>
+      <li
+        *ngIf="groups && groups.length === 0"
+        class="text-center p-3 text-muted"
+      >
+        {{ 'chat.noGroupChatsFound' | translate: 'Группы не найдены' }}
+      </li>
+    </ul>
+  </perfect-scrollbar>
+  <!-- End chat-group-list -->
+</div>
+<!-- End Groups content -->

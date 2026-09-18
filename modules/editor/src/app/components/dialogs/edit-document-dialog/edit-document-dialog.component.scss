@@ -1,0 +1,39 @@
+.mat-dialog-content {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.input-holder {
+  width: 100%;
+}
+
+.mat-dialog-actions {
+  &[align='right'] {
+    justify-content: flex-end;
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+:host ::ng-deep ckeditor {
+  height: 100%;
+
+  .ck-editor {
+    height: calc(100% - 10px);
+
+    .ck-editor__main {
+      height: calc(100% - 38px);
+
+      .ck-editor__editable_inline {
+        height: 100%;
+      }
+    }
+  }
+}

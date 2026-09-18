@@ -1,0 +1,66 @@
+.task-sheet {
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    &__theme {
+      flex: 0 0 20%;
+      min-width: 180px;
+    }
+
+    &__theme--full {
+      flex: 1 1 auto; 
+      min-width: 180px;
+    }
+
+    &__actions {
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+  }
+
+  &__body {
+    padding-bottom: 25px;
+  }
+}
+
+.mselect {
+  width: 170px;
+  flex-shrink: 0;
+  margin-left: 20px;
+}
+
+.iconify {
+  width: 30px;
+  height: 30px;
+  font-size: 20px;
+}
+
+::ng-deep .mat-select-panel.theme-panel {
+  max-height: 400px;
+
+  .mat-option {
+    height: auto !important;
+    white-space: normal !important;
+    line-height: 1.4 !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .mat-option-text {
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+}
+
+::ng-deep .task-sheet__header__theme--full {
+  .mat-form-field-infix {
+    width: 100% !important;
+  }
+}

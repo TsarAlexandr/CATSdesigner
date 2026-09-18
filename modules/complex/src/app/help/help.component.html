@@ -1,0 +1,33 @@
+<button
+  mat-icon-button
+  type="button"
+  class="mat-icon-button-help"
+  [matMenuTriggerFor]="helpMenu"
+  #helpMenuTrigger="matMenuTrigger"
+  [matTooltip]="'common.help' | translate: 'Помощь'"
+  matTooltipPosition="below"
+>
+  <mat-icon color="primary">help_outline</mat-icon>
+</button>
+
+<mat-menu
+  #helpMenu="matMenu"
+  [overlapTrigger]="false"
+  [hasBackdrop]="true"
+>
+  <div class="app-help-menu-surface" (click)="$event.stopPropagation()">
+    <div class="help-popover" [class.help-popover--wide]="wide">
+      <div class="help-popover-text">{{ message }}</div>
+      <div class="help-popover-actions">
+        <button
+          mat-raised-button
+          color="primary"
+          type="button"
+          (click)="helpMenuTrigger.closeMenu()"
+        >
+          {{ action }}
+        </button>
+      </div>
+    </div>
+  </div>
+</mat-menu>

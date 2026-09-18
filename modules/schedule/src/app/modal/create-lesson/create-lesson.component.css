@@ -1,0 +1,50 @@
+.example-container {
+  display: flex;
+  flex-direction: column;
+  overflow-y: initial !important;
+}
+
+.example-container a > * {
+  width: 100%;
+}
+
+.mat-form-field {
+  width: 100%;
+}
+
+.mat-select-value {
+  color: #383838;
+}
+
+.mat-option-text {
+  color: #383838;
+}
+
+.mat-dialog-content {
+  margin: 0;
+  padding: 0 6px;
+}
+
+.mat-select {
+  border: 0px;
+  height: 0px;
+  padding: 0px;
+}
+
+.mat-form-field-type-mat-native-select.mat-form-field-disabled
+  .mat-form-field-infix::after,
+.mat-input-element:disabled {
+  color: black;
+}
+
+.dialog-form-header {
+  position: relative;
+  padding-right: 40px;
+}
+
+.dialog-form-header .dialog-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  cursor: pointer;
+}

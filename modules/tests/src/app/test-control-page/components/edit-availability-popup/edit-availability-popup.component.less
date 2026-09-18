@@ -1,0 +1,53 @@
+.availability-popup {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+
+  &-description {
+    span {
+      color: rgb(130 130 130);
+      font-size: 14px;
+    }
+  }
+
+  &-container {
+    text-align: left;
+    font-style: normal;
+    font-variant-caps: normal;
+    font-variant-ligatures: normal;
+    font-variant-numeric: normal;
+    font-variant-east-asian: normal;
+    font-weight: 400;
+    font-stretch: normal;
+    font-size: 20px;
+    line-height: 32px;
+    font-family: Roboto, 'Helvetica Neue', sans-serif;
+    margin-bottom: 0;
+  }
+
+  &-content {
+    max-height: unset;
+    width: 100%;
+    &-blocks {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      &-item {
+        width: 45%;
+      }
+    }
+  }
+
+  &-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    &-margin {
+    }
+  }
+}
+
+.mat-dialog-actions {
+  justify-content: flex-end;
+}

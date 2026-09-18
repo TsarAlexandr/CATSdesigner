@@ -1,0 +1,46 @@
+table {
+  width: 100%;
+}
+
+.stats-table {
+  padding: 80px 30px 30px 50px;
+}
+
+.main-header {
+  text-align: left;
+  display: flex;
+  font-size: 16px;
+}
+
+.main-header p {
+  font-weight: bold;
+  margin-left: 10px;
+}
+
+th.mat-header-cell,
+td.mat-cell {
+  text-align: center;
+  border: 1px solid #ccc;
+  padding: 0 !important;
+}
+
+.column {
+  width: 10%;
+}
+
+.all {
+  background: antiquewhite;
+}
+
+.diagram {
+  float: left;
+  height: 400px;
+  width: 400px;
+  box-shadow: 5px 5px 5px rgba(187, 187, 187, 0.25);
+  border: 1px solid aliceblue;
+  margin-bottom: 30px;
+}
+.radar {
+  width: 50%;
+  margin-left: 20%;
+}
